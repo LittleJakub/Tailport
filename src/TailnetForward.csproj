@@ -6,12 +6,12 @@
     <LangVersion>9.0</LangVersion>
     <AssemblyName>TailnetForward</AssemblyName>
     <RootNamespace>TailnetForward</RootNamespace>
-    <ApplicationIcon>..\assets\on.ico</ApplicationIcon>
+    <ApplicationIcon>..\assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <Version>1.2.0</Version>
-    <Authors>Jakub</Authors>
+    <Version>1.3.0</Version>
+    <Authors>LittleJakub</Authors>
     <Product>Tailnet Forward</Product>
     <Description>Tray toggle for the WSL2 tailnet forwarder</Description>
   </PropertyGroup>
