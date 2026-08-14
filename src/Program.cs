@@ -515,11 +515,11 @@ namespace TailnetForward
                 return; // keep the flat drop-down background
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            // pill hugs the row's content: item bounds minus padding, +2px air
-            var b = e.Item.Bounds;
+            // NOTE: the renderer's graphics is already translated to the item's origin,
+            // so all coordinates are item-local (never add Bounds.X/Y here)
             var p = e.Item.Padding;
-            var r = new Rectangle(b.X + p.Left - 2, b.Y + p.Top - 2,
-                                  b.Width - p.Horizontal + 4, b.Height - p.Vertical + 4);
+            var r = new Rectangle(p.Left - 2, p.Top - 2,
+                                  e.Item.Width - p.Horizontal + 4, e.Item.Height - p.Vertical + 4);
             using (var path = Rounded(r, 5))
             using (var brush = new SolidBrush(_c.HoverBg))
                 g.FillPath(brush, path);
