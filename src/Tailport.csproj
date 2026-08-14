@@ -4,8 +4,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>9.0</LangVersion>
-    <AssemblyName>TailnetForward</AssemblyName>
-    <RootNamespace>TailnetForward</RootNamespace>
+    <AssemblyName>Tailport</AssemblyName>
+    <RootNamespace>Tailport</RootNamespace>
     <AssemblyTitle>Tailport</AssemblyTitle>
     <ApplicationIcon>..\assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>

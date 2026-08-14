@@ -23,7 +23,7 @@ REM 3) Strip any inherited PYTHONPATH so the right Python is used
 set "PYTHONPATH="
 
 REM 4) Launch the forwarder hidden (pythonw = no console window)
-start "" "C:\Users\user\AppData\Local\Programs\Python\Python311\pythonw.exe" "%~dp0tailnet-forward.py" --local 8080 --host 100.101.102.103 --port 8080
+start "" "C:\Users\user\AppData\Local\Programs\Python\Python311\pythonw.exe" "%~dp0forwarder.py" --local 8080 --host 100.101.102.103 --port 8080
 
 REM 5) Keep the VM alive - attach a hidden keeper session. stop.cmd
 REM    kills it so the VM can wind down (~1 min).
@@ -41,7 +41,7 @@ echo [OK] Forwarder is listening on 127.0.0.1:8080
 echo      Full chain test (allow ~20s for tailnet sync): run check.cmd
 goto DONE
 :NOTLISTENING
-echo [!!] Not listening yet. See tailnet-forward.log for details.
+echo [!!] Not listening yet. See tailport.log for details.
 :DONE
 echo.
 pause

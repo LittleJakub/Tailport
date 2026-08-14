@@ -5,9 +5,9 @@ REM  Reversible: run start.cmd to bring it back.
 REM ============================================================
 
 set "PID="
-if exist "%~dp0tailnet-forward.pid" set /p PID=<"%~dp0tailnet-forward.pid"
+if exist "%~dp0forwarder.pid" set /p PID=<"%~dp0forwarder.pid"
 if defined PID taskkill /PID %PID% /F >nul 2>&1
-if defined PID del "%~dp0tailnet-forward.pid" >nul 2>&1
+if defined PID del "%~dp0forwarder.pid" >nul 2>&1
 if defined PID echo [OK] Forwarder stopped (PID %PID%)
 if not defined PID echo [!!] No PID file found - forwarder was not running?
 

@@ -10,7 +10,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-namespace TailnetForward
+namespace Tailport
 {
     internal static class Program
     {
@@ -18,7 +18,7 @@ namespace TailnetForward
         private static void Main()
         {
             bool createdNew;
-            using (var mutex = new Mutex(true, "TailnetForward.SingleInstance", out createdNew))
+            using (var mutex = new Mutex(true, "Tailport.SingleInstance", out createdNew))
             {
                 if (!createdNew)
                     return; // another instance is already running
@@ -36,10 +36,10 @@ namespace TailnetForward
         private static readonly string AssetsDir = Path.Combine(AppBase, "assets");
         private static readonly string PythonW =
             @"C:\Users\user\AppData\Local\Programs\Python\Python311\pythonw.exe";
-        private static readonly string ForwarderScript = Path.Combine(AppBase, "tailnet-forward.py");
-        private static readonly string ForwarderPid = Path.Combine(AppBase, "tailnet-forward.pid");
+        private static readonly string ForwarderScript = Path.Combine(AppBase, "forwarder.py");
+        private static readonly string ForwarderPid = Path.Combine(AppBase, "forwarder.pid");
         private static readonly string KeeperPid = Path.Combine(AppBase, "keeper.pid");
-        private static readonly string LogFile = Path.Combine(AppBase, "tailnet-forward.log");
+        private static readonly string LogFile = Path.Combine(AppBase, "tailport.log");
         private const string HealthUrl = "http://127.0.0.1:8080/health";
 
         private readonly NotifyIcon _icon = new NotifyIcon();

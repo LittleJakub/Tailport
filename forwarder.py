@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-tailnet-forward.py — local port forward through the WSL2 Tailscale SOCKS5 proxy.
+forwarder.py — local port forward through the WSL2 Tailscale SOCKS5 proxy.
 
 Purpose: let ANY Windows app (proxy-unaware, like Hermes Desktop) reach a
 tailnet service through Tailscale, WITHOUT Tailscale touching the Windows
@@ -14,8 +14,8 @@ Requires: WSL2 running with tailscaled (userspace + --socks5-server=1055),
           pysocks in the Python311 install.
 
 Usage:
-  python tailnet-forward.py                          # 8080 -> parthenon llama :8080
-  python tailnet-forward.py --local 9090 --host 100.101.102.103 --port 9090
+  python forwarder.py                          # 8080 -> parthenon llama :8080
+  python forwarder.py --local 9090 --host 100.101.102.103 --port 9090
 """
 
 import argparse
@@ -32,8 +32,8 @@ SOCKS_PORT = 1055
 BUF = 65536
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PID_FILE = os.path.join(HERE, "tailnet-forward.pid")
-LOG_FILE = os.path.join(HERE, "tailnet-forward.log")
+PID_FILE = os.path.join(HERE, "forwarder.pid")
+LOG_FILE = os.path.join(HERE, "tailport.log")
 
 
 def log(msg):

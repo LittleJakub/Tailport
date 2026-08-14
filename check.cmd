@@ -26,12 +26,12 @@ echo.
 
 echo === 2) Chain test: forwarder - WSL SOCKS5 - parthenon llama /health ===
 curl -s -m 8 http://127.0.0.1:8080/health
-if errorlevel 1 echo [!!] No response - see tailnet-forward.log
+if errorlevel 1 echo [!!] No response - see tailport.log
 echo.
 
 echo === 3) Last 10 log lines ===
-if exist "%~dp0tailnet-forward.log" powershell -NoProfile -Command "Get-Content '%~dp0tailnet-forward.log' -Tail 10"
-if not exist "%~dp0tailnet-forward.log" echo (no log file yet)
+if exist "%~dp0tailport.log" powershell -NoProfile -Command "Get-Content '%~dp0tailport.log' -Tail 10"
+if not exist "%~dp0tailport.log" echo (no log file yet)
 
 echo.
 pause

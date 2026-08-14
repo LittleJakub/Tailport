@@ -20,3 +20,7 @@ Thumbs.db
 # IDE
 .vs/
 *.suo
+
+# built exe + config (build.cmd output)
+Tailport.exe
+Tailport.exe.config

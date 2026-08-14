@@ -23,7 +23,7 @@ WSL2 tailscaled (userspace, never touches the Windows stack)
 your server's tailnet address:11434/8080  ◄── llama.cpp / Ollama
 ```
 
-- **ON** — icon turns white, your apps reach the remote model through the door
+- **ON** — icon turns violet, your apps reach the remote model through the door
 - **OFF** — icon greys out, nothing routes, nothing lingers
 - **Quit** — full shutdown of the bridge
 - Apps that expect an OpenAI-compatible API just point at `http://127.0.0.1:8080/v1`
@@ -39,24 +39,27 @@ your server's tailnet address:11434/8080  ◄── llama.cpp / Ollama
 
 ## Status
 
-Early stage — a proven, working prototype being refactored into a
-configurable, installable product:
+A working, branded tray app (native Windows, .NET Framework 4.8 — zero
+runtime deps) with a violet 2026 theme, glow hover, pastel state colors and
+an installer on the way:
 
-- [x] Working tray app (native Windows, 43 KB, .NET Framework 4.8 — zero runtime deps)
+- [x] Working tray app (native Windows, ~110 KB, .NET Framework 4.8 — zero runtime deps)
 - [x] Forwarder + keeper + launchers (proven on the author's machine)
+- [x] 2026-grade icon + theme (violet identity, glow hover, pastel states)
 - [ ] Config-driven (no hardcoded addresses) — *in progress*
-- [ ] 2026-grade icon + theme
 - [ ] Setup wizard installer (asks for WSL2, tailnet IP, ports, model)
 - [ ] One-command WSL2 bootstrap for new users
 
 ## Repository layout
 
 ```
-src/         C# tray app source (WinForms, net48)
-forwarder/   the Python SOCKS5 forwarder
-scripts/     start / stop / check launchers (for the CLI-minded)
-assets/      icons (tray, menu, installer)
-installer/   setup wizard (planned)
+src/         C# tray app source (WinForms, net48)  -> build.cmd publishes it
+build.cmd    builds Tailport.exe into the repo root (the runtime folder)
+forwarder.py the Python SOCKS5 forwarder (lives next to the exe at runtime)
+start.cmd    manual CLI path: boot WSL + start the forwarder
+stop.cmd     manual CLI path: stop the forwarder
+check.cmd    manual CLI path: status + recent log
+assets/      icons (app tile, tray states)
 ```
 
 ## Requirements
