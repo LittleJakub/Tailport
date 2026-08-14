@@ -1,4 +1,4 @@
-# Tailport
+<h1><img src="assets/icon-512.png" width="40" height="40" alt="Tailport" align="middle"> Tailport</h1>
 
 **A tray toggle that bridges Windows apps to your Tailscale-hosted LLM — safely, even when a VPN client owns your network stack.**
 
@@ -14,7 +14,7 @@ gives you a one-click door to your remote model:
 your app (Hermes, any LLM client)
         │  plain HTTP
         ▼
-127.0.0.1:8080  ◄── Tailport tray toggle (ON/OFF, plug icon)
+127.0.0.1:8080  ◄── Tailport tray toggle (ON/OFF, violet port icon)
         │  SOCKS5
         ▼
 WSL2 tailscaled (userspace, never touches the Windows stack)
