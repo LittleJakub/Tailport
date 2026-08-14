@@ -515,30 +515,46 @@ namespace TailnetForward
 
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
-            // highlight pill is drawn in OnRenderItemText, which knows the exact
-            // text rectangle; suppress the default full-row highlight here
+            // pill + glow live HERE (fires once per item per paint, behind the text);
+            // the text pass double-fires, which is why a pill there ended up in front
+            if (!e.Item.Selected || !e.Item.Enabled)
+                return;
+            var item = e.Item;
+            var f = item.Font ?? new Font("Segoe UI", 9f);
+            var tr = TextRectFor(item, f);
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // soft radial glow spilling beyond the highlight body
+            var glowRect = tr;
+            glowRect.Inflate(10, 6);
+            using (var path = Rounded(glowRect, 8))
+            using (var brush = new PathGradientBrush(path))
+            {
+                brush.CenterColor = Color.FromArgb(110, _c.HoverBg);
+                brush.SurroundColors = new[] { Color.FromArgb(0, _c.HoverBg) };
+                brush.CenterPoint = new PointF(
+                    glowRect.X + glowRect.Width / 2f, glowRect.Y + glowRect.Height / 2f);
+                g.FillPath(brush, path);
+            }
+
+            // highlight body
+            var coreRect = tr;
+            coreRect.Inflate(5, 2);
+            using (var path = Rounded(coreRect, 5))
+            using (var brush = new SolidBrush(Color.FromArgb(120, _c.HoverBg)))
+                g.FillPath(brush, path);
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            // fully custom text pass: pill + text, both drawn here so the text
-            // always sits on top and is vertically centered in the row.
+            // text only (drawn last -> always on top; may fire twice, harmless)
             var item = e.Item;
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             var f = e.TextFont ?? item.Font;
 
-            var textRect = new Rectangle(LeftMargin, (item.Height - f.Height) / 2,
-                                         item.Width - LeftMargin - RightMargin, f.Height);
-
-            if (item.Selected && item.Enabled)
-            {
-                var pr = textRect;
-                pr.Inflate(6, 3);
-                using (var path = Rounded(pr, 5))
-                using (var brush = new SolidBrush(_c.HoverBg))
-                    g.FillPath(brush, path);
-            }
+            var textRect = TextRectFor(item, f);
 
             Color col;
             if (item.Tag is Color state) col = state;
@@ -548,6 +564,13 @@ namespace TailnetForward
 
             TextRenderer.DrawText(g, e.Text, f, textRect, col,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+        }
+
+        /// <summary>Shared layout: text rect vertically centered in the row, my margins.</summary>
+        private static Rectangle TextRectFor(ToolStripItem item, Font f)
+        {
+            return new Rectangle(LeftMargin, (item.Height - f.Height) / 2,
+                                 item.Width - LeftMargin - RightMargin, f.Height);
         }
 
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
