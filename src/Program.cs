@@ -1,11 +1,14 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Management;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace TailnetForward
 {
@@ -41,6 +44,7 @@ namespace TailnetForward
 
         private readonly NotifyIcon _icon = new NotifyIcon();
         private readonly SynchronizationContext _ui;
+        private readonly ModernColors _palette;
         private ToolStripMenuItem _statusItem;
         private ToolStripMenuItem _toggleItem;
         private Icon _currentIcon;
@@ -51,6 +55,7 @@ namespace TailnetForward
         public TrayContext()
         {
             _ui = SynchronizationContext.Current ?? new SynchronizationContext();
+            _palette = new ModernColors(WinTheme.IsDark());
             BuildMenu();
 
             var timer = new System.Windows.Forms.Timer { Interval = 10000 };
@@ -65,31 +70,37 @@ namespace TailnetForward
 
         private void BuildMenu()
         {
-            var menu = new ContextMenuStrip { Renderer = new DarkRenderer(), ShowImageMargin = true };
-
-            var header = new ToolStripMenuItem("Tailnet Forward")
+            var menu = new ContextMenuStrip
             {
-                Enabled = false,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
+                Renderer = new ModernRenderer(_palette),
+                ShowImageMargin = false, // no icon column: text sits uniformly against the edges
+                Font = new Font("Segoe UI", 9f),
+                Padding = new Padding(4) // uniform breathing room inside the border
             };
-            _statusItem = new ToolStripMenuItem("Status: checking...") { Enabled = false };
-            _toggleItem = new ToolStripMenuItem("Turn ON", LoadImg("menu_power.png"));
+
+            // Win11-style rounded corners + correct dark chrome on the dropdown window
+            menu.Opened += delegate
+            {
+                try { WinTheme.Apply(menu.Handle, _palette.Dark); } catch { }
+            };
+
+            _statusItem = NewItem("Service OFF", null, false);
+            // first row gets +2px top air so the menu's top gap matches the bottom gap
+            _statusItem.Padding = new Padding(12, 12, 12, 10);
+            _toggleItem = NewItem("Turn ON", null, true);
             _toggleItem.Click += delegate { Toggle(); };
 
-            var check = new ToolStripMenuItem("Check connection", LoadImg("menu_refresh.png"));
+            var check = NewItem("Check connection", null, true);
             check.Click += delegate
             {
                 RefreshStatus();
-                _icon.ShowBalloonTip(2500, "Tailnet Forward", StatusLine(), ToolTipIcon.Info);
+                _icon.ShowBalloonTip(2500, "Tailport", StatusLine(), ToolTipIcon.Info);
             };
 
-            var openLog = new ToolStripMenuItem("Open log file", LoadImg("menu_log.png"));
+            var openLog = NewItem("Open log file", null, true);
             openLog.Click += delegate { OpenFile(LogFile); };
 
-            var openFolder = new ToolStripMenuItem("Open folder", LoadImg("menu_folder.png"));
-            openFolder.Click += delegate { Process.Start("explorer.exe", AppBase); };
-
-            var quit = new ToolStripMenuItem("Quit", LoadImg("menu_quit.png"));
+            var quit = NewItem("Quit", null, true);
             quit.Click += delegate
             {
                 _icon.Visible = false;
@@ -97,15 +108,13 @@ namespace TailnetForward
                 Application.Exit();
             };
 
-            menu.Items.Add(header);
             menu.Items.Add(_statusItem);
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(Sep());
             menu.Items.Add(_toggleItem);
             menu.Items.Add(check);
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(Sep());
             menu.Items.Add(openLog);
-            menu.Items.Add(openFolder);
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(Sep());
             menu.Items.Add(quit);
 
             _icon.ContextMenuStrip = menu;
@@ -125,6 +134,21 @@ namespace TailnetForward
             };
             _icon.MouseClick += onLeft;
             _icon.MouseUp += onLeft;
+        }
+
+        private ToolStripMenuItem NewItem(string text, Image image, bool enabled)
+        {
+            var item = new ToolStripMenuItem(text, image)
+            {
+                Enabled = enabled,
+                Padding = new Padding(12, 10, 12, 10) // uniform text padding, all four sides
+            };
+            return item;
+        }
+
+        private static ToolStripSeparator Sep()
+        {
+            return new ToolStripSeparator();
         }
 
         // ================= toggle =================
@@ -147,19 +171,19 @@ namespace TailnetForward
                 if (_running)
                 {
                     TurnOff();
-                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailnet Forward", "Service OFF", ToolTipIcon.Info); });
+                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailport", "Service OFF", ToolTipIcon.Info); });
                 }
                 else
                 {
                     TurnOn();
-                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailnet Forward", "Service ON - syncing...", ToolTipIcon.Info); });
+                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailport", "Service ON - syncing...", ToolTipIcon.Info); });
                 }
             }
             catch (Exception ex)
             {
                 Ui(delegate
                 {
-                    _icon.ShowBalloonTip(4000, "Tailnet Forward", "Error: " + ex.Message, ToolTipIcon.Error);
+                    _icon.ShowBalloonTip(4000, "Tailport", "Error: " + ex.Message, ToolTipIcon.Error);
                 });
             }
             finally
@@ -228,7 +252,7 @@ namespace TailnetForward
             _running = running;
             _reachable = reachable;
 
-            // ON = white refresh glyph, OFF = greyed out (user's spec)
+            // ON = violet glyph, OFF = greyed out (brand states)
             string glyph = running ? "on.ico" : "off.ico";
 
             var newIcon = LoadIcon(Path.Combine(AssetsDir, glyph));
@@ -241,9 +265,10 @@ namespace TailnetForward
                     old.Dispose();
             }
 
-            _icon.Text = "Tailnet Forward - Service " + (running ? "ON" : "OFF");
+            _icon.Text = "Tailport - Service " + (running ? "ON" : "OFF");
             _toggleItem.Text = running ? "Turn OFF" : "Turn ON";
             _statusItem.Text = running ? "Service ON" : "Service OFF";
+            _statusItem.Tag = running ? _palette.StateOn : _palette.StateOff;
         }
 
         private string StatusLine()
@@ -368,37 +393,172 @@ namespace TailnetForward
         }
     }
 
-    // ---------------- dark theme menu ----------------
+    // ================= 2026 theme =================
 
-    internal class DarkRenderer : ToolStripProfessionalRenderer
+    /// <summary>Windows shell helpers: system light/dark detection + DWM chrome.</summary>
+    internal static class WinTheme
     {
-        public DarkRenderer()
-            : base(new DarkColors())
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE_20 = 20; // Win11 22H2+
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE_19 = 19; // older builds
+        private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        private const int DWMWCP_ROUND = 2;
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+        public static bool IsDark()
         {
+            try
+            {
+                using (var k = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                {
+                    return k != null && (int)(k.GetValue("AppsUseLightTheme", 1) ?? 1) == 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Round the window corners (Win11) and match the chrome to the theme.</summary>
+        public static void Apply(IntPtr hwnd, bool dark)
+        {
+            if (hwnd == IntPtr.Zero)
+                return;
+            int darkVal = dark ? 1 : 0;
+            // immersive dark mode: newer attribute first, older as fallback
+            if (DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_20, ref darkVal, 4) != 0)
+                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_19, ref darkVal, 4);
+            int round = DWMWCP_ROUND;
+            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref round, 4);
+        }
+    }
+
+    /// <summary>Light/dark palettes with the Tailport violet accent.</summary>
+    internal class ModernColors : ProfessionalColorTable
+    {
+        public bool Dark { get; }
+
+        // base chrome
+        public Color Bg { get; }
+        public Color Border { get; }
+        public Color Text { get; }
+        public Color TextDisabled { get; }
+        public Color HoverBg { get; }
+        public Color HoverText { get; }
+        public Color Separator { get; }
+        public Color StateOn { get; }
+        public Color StateOff { get; }
+
+        public ModernColors(bool dark)
+        {
+            Dark = dark;
+            if (dark)
+            {
+                Bg = Color.FromArgb(30, 30, 35);          // #1E1E23
+                Border = Color.FromArgb(52, 52, 60);      // #34343C
+                Text = Color.FromArgb(228, 228, 231);     // #E4E4E7
+                TextDisabled = Color.FromArgb(113, 113, 122); // #71717A
+                HoverBg = Color.FromArgb(61, 48, 115);    // violet-tinted #3D3073
+                HoverText = Color.FromArgb(233, 228, 255);// #E9E4FF
+                Separator = Color.FromArgb(44, 44, 51);   // #2C2C33
+                StateOn = Color.FromArgb(110, 231, 183);  // pastel teal-green #6EE7B7
+                StateOff = Color.FromArgb(252, 165, 165); // pastel red #FCA5A5
+            }
+            else
+            {
+                Bg = Color.White;
+                Border = Color.FromArgb(228, 228, 231);   // #E4E4E7
+                Text = Color.FromArgb(24, 24, 27);        // #18181B
+                TextDisabled = Color.FromArgb(156, 163, 175); // #9CA3AF
+                HoverBg = Color.FromArgb(243, 239, 253);  // #F3EFFD violet tint
+                HoverText = Color.FromArgb(109, 40, 217); // #6D28D9
+                Separator = Color.FromArgb(232, 232, 236);// #E8E8EC
+                StateOn = Color.FromArgb(52, 211, 153);   // pastel teal-green #34D399
+                StateOff = Color.FromArgb(248, 113, 113); // pastel red #F87171
+            }
+        }
+
+        // --- ProfessionalColorTable wiring ---
+        public override Color ToolStripDropDownBackground => Bg;
+        public override Color ImageMarginGradientBegin => Bg;
+        public override Color ImageMarginGradientMiddle => Bg;
+        public override Color ImageMarginGradientEnd => Bg;
+        public override Color MenuBorder => Border;
+        public override Color ToolStripBorder => Border;
+        public override Color SeparatorDark => Separator;
+        public override Color SeparatorLight => Separator;
+        public override Color MenuItemSelected => HoverBg;
+        public override Color MenuItemBorder => HoverBg;
+        public override Color MenuItemSelectedGradientBegin => HoverBg;
+        public override Color MenuItemSelectedGradientEnd => HoverBg;
+        public override Color MenuItemPressedGradientBegin => HoverBg;
+        public override Color MenuItemPressedGradientEnd => HoverBg;
+    }
+
+    /// <summary>Renders the menu: rounded hover pills, palette text, state colors.</summary>
+    internal class ModernRenderer : ToolStripProfessionalRenderer
+    {
+        private readonly ModernColors _c;
+
+        public ModernRenderer(ModernColors colors)
+            : base(colors)
+        {
+            _c = colors;
+        }
+
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (!e.Item.Selected || !e.Item.Enabled)
+                return; // keep the flat drop-down background
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // pill hugs the row's content: item bounds minus padding, +2px air
+            var b = e.Item.Bounds;
+            var p = e.Item.Padding;
+            var r = new Rectangle(b.X + p.Left - 2, b.Y + p.Top - 2,
+                                  b.Width - p.Horizontal + 4, b.Height - p.Vertical + 4);
+            using (var path = Rounded(r, 5))
+            using (var brush = new SolidBrush(_c.HoverBg))
+                g.FillPath(brush, path);
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            e.TextColor = Color.FromArgb(230, 230, 235);
+            if (e.Item.Tag is Color state)
+            {
+                // status row: draw manually - base clobbers TextColor for disabled items
+                TextRenderer.DrawText(e.Graphics, e.Text, e.TextFont, e.TextRectangle, state,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+                return;
+            }
+            if (!e.Item.Enabled)
+                e.TextColor = _c.TextDisabled;
+            else
+                e.TextColor = e.Item.Selected ? _c.HoverText : _c.Text;
             base.OnRenderItemText(e);
         }
-    }
 
-    internal class DarkColors : ProfessionalColorTable
-    {
-        public override Color ToolStripDropDownBackground => Color.FromArgb(32, 32, 36);
-        public override Color ImageMarginGradientBegin => Color.FromArgb(32, 32, 36);
-        public override Color ImageMarginGradientMiddle => Color.FromArgb(32, 32, 36);
-        public override Color ImageMarginGradientEnd => Color.FromArgb(32, 32, 36);
-        public override Color MenuItemSelected => Color.FromArgb(62, 62, 70);
-        public override Color MenuItemBorder => Color.FromArgb(62, 62, 70);
-        public override Color MenuItemSelectedGradientBegin => Color.FromArgb(62, 62, 70);
-        public override Color MenuItemSelectedGradientEnd => Color.FromArgb(62, 62, 70);
-        public override Color MenuItemPressedGradientBegin => Color.FromArgb(45, 45, 52);
-        public override Color MenuItemPressedGradientEnd => Color.FromArgb(45, 45, 52);
-        public override Color MenuBorder => Color.FromArgb(45, 45, 52);
-        public override Color SeparatorDark => Color.FromArgb(70, 70, 78);
-        public override Color SeparatorLight => Color.FromArgb(70, 70, 78);
-        public override Color ToolStripBorder => Color.FromArgb(45, 45, 52);
+        protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+        {
+            var g = e.Graphics;
+            var y = e.Item.Height / 2;
+            using (var pen = new Pen(_c.Separator, 1f))
+                g.DrawLine(pen, 8, y, e.Item.Width - 8, y);
+        }
+
+        private static GraphicsPath Rounded(Rectangle r, int radius)
+        {
+            var p = new GraphicsPath();
+            int d = radius * 2;
+            p.AddArc(r.X, r.Y, d, d, 180, 90);
+            p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            p.CloseFigure();
+            return p;
+        }
     }
 }
