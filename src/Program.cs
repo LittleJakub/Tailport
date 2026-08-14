@@ -84,23 +84,22 @@ namespace TailnetForward
                 try { WinTheme.Apply(menu.Handle, _palette.Dark); } catch { }
             };
 
-            _statusItem = NewItem("Service OFF", null, false);
+            _statusItem = NewItem("Service OFF", false);
             // first row gets +2px top air so the menu's top gap matches the bottom gap
-            _statusItem.Padding = new Padding(12, 12, 12, 10);
-            _toggleItem = NewItem("Turn ON", null, true);
+            _toggleItem = NewItem("Turn ON", true);
             _toggleItem.Click += delegate { Toggle(); };
 
-            var check = NewItem("Check connection", null, true);
+            var check = NewItem("Check connection", true);
             check.Click += delegate
             {
                 RefreshStatus();
                 _icon.ShowBalloonTip(2500, "Tailport", StatusLine(), ToolTipIcon.Info);
             };
 
-            var openLog = NewItem("Open log file", null, true);
+            var openLog = NewItem("Open log file", true);
             openLog.Click += delegate { OpenFile(LogFile); };
 
-            var quit = NewItem("Quit", null, true);
+            var quit = NewItem("Quit", true);
             quit.Click += delegate
             {
                 _icon.Visible = false;
@@ -136,12 +135,13 @@ namespace TailnetForward
             _icon.MouseUp += onLeft;
         }
 
-        private ToolStripMenuItem NewItem(string text, Image image, bool enabled)
+        private ToolStripMenuItem NewItem(string text, bool enabled)
         {
-            var item = new ToolStripMenuItem(text, image)
+            var item = new ToolStripMenuItem(text)
             {
                 Enabled = enabled,
-                Padding = new Padding(12, 10, 12, 10) // uniform text padding, all four sides
+                // row air via margin (the framework mishandles vertical item padding)
+                Margin = new Padding(0, 5, 0, 5)
             };
             return item;
         }
@@ -503,6 +503,10 @@ namespace TailnetForward
     {
         private readonly ModernColors _c;
 
+        // text margins: every row's text starts/ends at these offsets
+        private const int LeftMargin = 16;
+        private const int RightMargin = 16;
+
         public ModernRenderer(ModernColors colors)
             : base(colors)
         {
@@ -517,31 +521,33 @@ namespace TailnetForward
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            // highlight pill: drawn here because this event carries the exact
-            // text rectangle the framework paints the text into
-            if (e.Item.Selected && e.Item.Enabled)
+            // fully custom text pass: pill + text, both drawn here so the text
+            // always sits on top and is vertically centered in the row.
+            var item = e.Item;
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var f = e.TextFont ?? item.Font;
+
+            var textRect = new Rectangle(LeftMargin, (item.Height - f.Height) / 2,
+                                         item.Width - LeftMargin - RightMargin, f.Height);
+
+            if (item.Selected && item.Enabled)
             {
-                var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                var r = e.TextRectangle;
-                r.Inflate(3, 2);
-                using (var path = Rounded(r, 5))
+                var pr = textRect;
+                pr.Inflate(6, 3);
+                using (var path = Rounded(pr, 5))
                 using (var brush = new SolidBrush(_c.HoverBg))
                     g.FillPath(brush, path);
             }
 
-            if (e.Item.Tag is Color state)
-            {
-                // status row: draw manually - base clobbers TextColor for disabled items
-                TextRenderer.DrawText(e.Graphics, e.Text, e.TextFont, e.TextRectangle, state,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
-                return;
-            }
-            if (!e.Item.Enabled)
-                e.TextColor = _c.TextDisabled;
-            else
-                e.TextColor = e.Item.Selected ? _c.HoverText : _c.Text;
-            base.OnRenderItemText(e);
+            Color col;
+            if (item.Tag is Color state) col = state;
+            else if (!item.Enabled) col = _c.TextDisabled;
+            else if (item.Selected) col = _c.HoverText;
+            else col = _c.Text;
+
+            TextRenderer.DrawText(g, e.Text, f, textRect, col,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
         }
 
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
@@ -549,7 +555,7 @@ namespace TailnetForward
             var g = e.Graphics;
             var y = e.Item.Height / 2;
             using (var pen = new Pen(_c.Separator, 1f))
-                g.DrawLine(pen, 8, y, e.Item.Width - 8, y);
+                g.DrawLine(pen, LeftMargin, y, e.Item.Width - RightMargin, y);
         }
 
         private static GraphicsPath Rounded(Rectangle r, int radius)
