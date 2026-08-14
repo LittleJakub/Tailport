@@ -511,22 +511,25 @@ namespace TailnetForward
 
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
-            if (!e.Item.Selected || !e.Item.Enabled)
-                return; // keep the flat drop-down background
-            var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            // NOTE: the renderer's graphics is already translated to the item's origin,
-            // so all coordinates are item-local (never add Bounds.X/Y here)
-            var p = e.Item.Padding;
-            var r = new Rectangle(p.Left - 2, p.Top - 2,
-                                  e.Item.Width - p.Horizontal + 4, e.Item.Height - p.Vertical + 4);
-            using (var path = Rounded(r, 5))
-            using (var brush = new SolidBrush(_c.HoverBg))
-                g.FillPath(brush, path);
+            // highlight pill is drawn in OnRenderItemText, which knows the exact
+            // text rectangle; suppress the default full-row highlight here
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
+            // highlight pill: drawn here because this event carries the exact
+            // text rectangle the framework paints the text into
+            if (e.Item.Selected && e.Item.Enabled)
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                var r = e.TextRectangle;
+                r.Inflate(3, 2);
+                using (var path = Rounded(r, 5))
+                using (var brush = new SolidBrush(_c.HoverBg))
+                    g.FillPath(brush, path);
+            }
+
             if (e.Item.Tag is Color state)
             {
                 // status row: draw manually - base clobbers TextColor for disabled items
