@@ -1,4 +1,4 @@
-<h1><img src="assets/icon-512.png" width="40" height="40" alt="Tailport" align="middle"> Tailport</h1>
+<h1><img src="assets/icon-512.png" width="40" height="40" alt="Tailport" align="absmiddle"> Tailport</h1>
 
 **A tray toggle that bridges Windows apps to your Tailscale-hosted LLM — safely, even when a VPN client owns your network stack.**
 
