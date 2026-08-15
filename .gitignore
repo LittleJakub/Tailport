@@ -24,3 +24,6 @@ Thumbs.db
 # built exe + config (build.cmd output)
 Tailport.exe
 Tailport.exe.config
+
+# personal runtime config (holds machine paths + tailnet addresses)
+tailport.config

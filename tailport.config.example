@@ -1,8 +1,11 @@
 # ============================================================
-#  Tailport configuration
+#  Tailport configuration  (example template)
 #
-#  Tailport is the Astrill-safe door to your Tailscale tailnet:
-#  every service listed here becomes reachable on this machine
+#  Copy this file to tailport.config and fill in YOUR values.
+#  tailport.config is git-ignored: it holds your machine paths
+#  and tailnet addresses, so it never gets committed.
+#
+#  Every service listed here becomes reachable on this machine
 #  at http://localhost:<local_port> while the service is ON.
 #  Not just LLMs - any tailnet service (SSH, Immich, Jupyter...).
 #
@@ -13,7 +16,7 @@
 # --- Python -------------------------------------------------
 # Full path to pythonw.exe (runs the forwarder invisibly).
 # Leave empty to resolve pythonw from the system PATH.
-pythonw=C:\Users\user\AppData\Local\Programs\Python\Python311\pythonw.exe
+pythonw=
 
 # --- WSL2 ---------------------------------------------------
 # The Linux distro that runs tailscaled on this machine.

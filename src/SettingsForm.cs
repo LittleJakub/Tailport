@@ -15,6 +15,7 @@ namespace Tailport
         private readonly Dictionary<string, string> _cfg = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         private TextBox _distro, _pythonw, _socksHost, _socksPort, _llmPort, _llmTarget, _forwards;
+        private readonly ToolTip _tip = new ToolTip();
 
         public SettingsForm(string configPath)
         {
@@ -28,6 +29,40 @@ namespace Tailport
         {
             base.OnHandleCreated(e);
             WinTheme.Apply(Handle, _c.Dark);
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            // self-size: grow the window if any control exceeds it (safety net)
+            int maxRight = 0, maxBottom = 0;
+            foreach (Control c in Controls)
+            {
+                if (c.Right > maxRight) maxRight = c.Right;
+                if (c.Bottom > maxBottom) maxBottom = c.Bottom;
+            }
+            if (maxRight + 24 > ClientSize.Width)
+                ClientSize = new Size(maxRight + 24, ClientSize.Height);
+            if (maxBottom + 24 > ClientSize.Height)
+                ClientSize = new Size(ClientSize.Width, maxBottom + 24);
+
+            // Render at the window's real DPI. WinForms' auto-scaling only fires
+            // when AutoScaleDimensions (design) != CurrentAutoScaleDimensions
+            // (runtime), but a form created fresh at 192dpi captures BOTH at 192
+            // -> no scaling -> the layout would render at 96dpi size on a 200%
+            // display (everything half-size). Scale() multiplies every child's
+            // bounds by DeviceDpi/96; fonts need no scaling because a 9pt font
+            // at 192dpi already renders at 2x physical size.
+            float s = DeviceDpi / 96f;
+            if (Math.Abs(s - 1f) > 0.01f)
+                Scale(new SizeF(s, s));
+
+            // the python path is long: show its tail (the executable name)
+            if (_pythonw != null && _pythonw.Text.Length > 0)
+            {
+                _pythonw.SelectionStart = _pythonw.Text.Length;
+                _pythonw.ScrollToCaret();
+            }
         }
 
         private void ReadConfig()
@@ -61,33 +96,80 @@ namespace Tailport
             get { return _c.Dark ? Color.FromArgb(38, 38, 43) : Color.White; }
         }
 
-        private TextBox AddRow(string label, string value, int pad, ref int y,
-                               int labelW, int inputW, int rowH)
+        private TextBox MakeBox(string value, int width, int height)
         {
-            var lbl = new Label
+            return new TextBox
             {
-                Text = label,
-                Left = pad,
-                Top = y + 5,
-                Width = labelW,
-                ForeColor = _c.Text,
-                Font = Font
-            };
-            Controls.Add(lbl);
-            var box = new TextBox
-            {
-                Left = pad + labelW,
-                Top = y,
-                Width = inputW,
+                Left = 0, Top = 0, Width = width, Height = height,
                 Text = value,
                 BackColor = InputBg,
                 ForeColor = _c.Text,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = Font
             };
+        }
+
+        /// <summary>One field cell (70px pitch): label, 24px gap, input, hint (14px tall, descenders never clip).</summary>
+        private TextBox AddCell(string label, string value, string hint, int x, int y, int w)
+        {
+            var lbl = new Label
+            {
+                Text = label,
+                Left = x,
+                Top = y,
+                Width = w,
+                ForeColor = _c.Text,
+                Font = Font,
+                BackColor = Color.Transparent // never paint over the field below
+            };
+            Controls.Add(lbl);
+
+            var box = MakeBox(value, w, 26);
+            box.Left = x;
+            box.Top = y + 24;
             Controls.Add(box);
-            y += rowH;
+
+            var h = new Label
+            {
+                Text = hint,
+                Left = x,
+                Top = y + 52,
+                Width = w,
+                Height = 14,
+                ForeColor = _c.TextDisabled,
+                Font = new Font(Font.FontFamily, 8.25f),
+                BackColor = Color.Transparent
+            };
+            Controls.Add(h);
+            _tip.SetToolTip(box, hint);
+
             return box;
+        }
+
+        private int Section(string title, int pad, int y)
+        {
+            var lbl = new Label
+            {
+                Text = title,
+                Left = pad,
+                Top = y,
+                Width = 160,
+                ForeColor = _c.TextDisabled,
+                Font = new Font(Font.FontFamily, 8.25f, FontStyle.Bold),
+                BackColor = Color.Transparent
+            };
+            Controls.Add(lbl);
+
+            var line = new Label
+            {
+                Left = pad + 170,
+                Top = y + 7,
+                Width = 480,
+                Height = 1,
+                BackColor = _c.Separator
+            };
+            Controls.Add(line);
+            return y + 19;
         }
 
         private IEnumerable<string> ForwardLines()
@@ -108,73 +190,140 @@ namespace Tailport
         {
             Text = "Tailport settings";
             Font = new Font("Segoe UI", 9f);
+            AutoScaleMode = AutoScaleMode.Dpi; // WinForms scales layout to the window DPI
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(460, 470);
+            // AutoScaleMode stays None; ApplyDpiScale in OnLoad renders at the
+            // window's real DPI so the layout is pixel-identical everywhere.
+            ClientSize = new Size(740, 458);
             BackColor = _c.Bg;
             ForeColor = _c.Text;
 
-            const int pad = 20, labelW = 140, inputW = 260, rowH = 34;
-            int y = pad;
+            const int pad = 28;
+            const int cell = 218;            // 3-column grid cell (door section)
+            const int cgap = 14;             // gap between grid cells
+            const int fullW = cell * 3 + cgap * 2; // 682 = full content width
+            const int rowPitch = 70;
+            int y = 12;
 
-            _distro = AddRow("WSL distro", Get(_cfg, "wsl_distro", "Ubuntu"), pad, ref y, labelW, inputW, rowH);
-            _pythonw = AddRow("Python (pythonw)", Get(_cfg, "pythonw", ""), pad, ref y, labelW, inputW, rowH);
-            _socksHost = AddRow("SOCKS host", Get(_cfg, "socks_host", "127.0.0.1"), pad, ref y, labelW, inputW, rowH);
-            _socksPort = AddRow("SOCKS port", Get(_cfg, "socks_port", "1055"), pad, ref y, labelW, inputW, rowH);
-            _llmPort = AddRow("LLM local port", Get(_cfg, "llm_local_port", "8080"), pad, ref y, labelW, inputW, rowH);
-            _llmTarget = AddRow("LLM target (ip:port)", Get(_cfg, "llm_target", ""), pad, ref y, labelW, inputW, rowH);
+            // ---- tailnet door ----
+            // One 3-column row for the short values; the long python path gets a
+            // full-width row of its own below (label directly above its field).
+            y = Section("TAILNET DOOR", pad, y);
+
+            _distro = AddCell("WSL distro", Get(_cfg, "wsl_distro", "Ubuntu"),
+                "Linux distro running tailscaled in WSL2.", pad, y, cell);
+            _socksHost = AddCell("SOCKS host", Get(_cfg, "socks_host", "127.0.0.1"),
+                "SOCKS5 proxy exposed by tailscaled.", pad + cell + cgap, y, cell);
+            _socksPort = AddCell("SOCKS port", Get(_cfg, "socks_port", "1055"),
+                "The tailnet door - usually 1055.", pad + 2 * (cell + cgap), y, cell);
+            y += rowPitch;
+
+            var pyLbl = new Label
+            {
+                Text = "Python (pythonw)",
+                Left = pad,
+                Top = y,
+                Width = fullW,
+                ForeColor = _c.Text,
+                Font = Font,
+                BackColor = Color.Transparent
+            };
+            Controls.Add(pyLbl);
+
+            _pythonw = MakeBox(Get(_cfg, "pythonw", ""), fullW, 26);
+            _pythonw.Left = pad;
+            _pythonw.Top = y + 24;
+            Controls.Add(_pythonw);
+            var pyHint = new Label
+            {
+                Text = "Runs the forwarder invisibly. Empty = PATH.",
+                Left = pad,
+                Top = y + 57,
+                Width = fullW,
+                Height = 14,
+                ForeColor = _c.TextDisabled,
+                Font = new Font(Font.FontFamily, 8.25f),
+                BackColor = Color.Transparent
+            };
+            Controls.Add(pyHint);
+            _tip.SetToolTip(_pythonw, "Runs the forwarder invisibly. Empty = PATH.");
+            y += 71;
+
+            // ---- LLM forwarder ----
+            y += 9;
+            y = Section("LLM FORWARDER", pad, y);
+
+            // Local port in grid column 1, target spanning columns 2-3.
+            _llmPort = AddCell("Local port", Get(_cfg, "llm_local_port", "8080"),
+                "Where the LLM answers here (status anchor).", pad, y, cell);
+            _llmTarget = AddCell("Target (ip:port)", Get(_cfg, "llm_target", ""),
+                "Your tailnet LLM - llama.cpp, Ollama...", pad + cell + cgap, y, cell * 2 + cgap);
+            y += rowPitch;
+
+            // ---- port forwards ----
+            y += 9;
+            y = Section("PORT FORWARDS", pad, y);
 
             var lbl = new Label
             {
-                Text = "Port forwards",
+                Text = "Forwards",
                 Left = pad,
-                Top = y + 4,
-                Width = labelW,
+                Top = y,
+                Width = fullW,
                 ForeColor = _c.Text,
-                Font = Font
+                Font = Font,
+                BackColor = Color.Transparent
             };
             Controls.Add(lbl);
-            _forwards = new TextBox
-            {
-                Left = pad + labelW,
-                Top = y,
-                Width = inputW,
-                Height = 84,
-                Multiline = true,
-                ScrollBars = ScrollBars.Vertical,
-                BackColor = InputBg,
-                ForeColor = _c.Text,
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = Font,
-                AcceptsReturn = true
-            };
-            _forwards.Text = string.Join("\r\n", ForwardLines());
-            Controls.Add(_forwards);
-            y += 104;
 
-            var hint = new Label
+            _forwards = MakeBox(string.Join("\r\n", ForwardLines()), fullW, 52);
+            _forwards.Left = pad;
+            _forwards.Top = y + 24;
+            _forwards.Multiline = true;
+            _forwards.ScrollBars = ScrollBars.None; // system scrollbars stay light in dark mode
+            _forwards.AcceptsReturn = true;
+            Controls.Add(_forwards);
+
+            var fhint = new Label
             {
-                Text = "One per line: local:tailnet-ip:port\r\n(e.g. 2283:100.101.102.103:2283). Empty = LLM only.",
-                Left = pad + labelW,
-                Top = y,
-                Width = inputW,
-                Height = 32,
+                Text = "One per line: local:tailnet-ip:port   (e.g. 2283:100.101.102.103:2283).  Empty = LLM only.",
+                Left = pad,
+                Top = y + 80,
+                Width = fullW,
+                Height = 14,
                 ForeColor = _c.TextDisabled,
-                Font = Font
+                Font = new Font(Font.FontFamily, 8.25f),
+                BackColor = Color.Transparent
             };
-            Controls.Add(hint);
-            y += 44;
+            Controls.Add(fhint);
+            _tip.SetToolTip(_forwards, fhint.Text);
+            y += 103;
+
+            // ---- actions: footer left, buttons right ----
+            var footer = new Label
+            {
+                Text = "Saved changes apply on the next Turn ON.",
+                Left = pad,
+                Top = y + 8,
+                Width = 400,
+                ForeColor = _c.TextDisabled,
+                Font = Font,
+                BackColor = Color.Transparent
+            };
+            Controls.Add(footer);
 
             var save = new Button
             {
                 Text = "Save",
-                Left = pad + labelW + inputW - 164,
-                Top = y + 8,
-                Width = 78,
+                Left = pad + fullW - 170,
+                Top = y,
+                Width = 80,
                 Height = 28,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             save.FlatAppearance.BorderSize = 0;
             save.BackColor = Color.FromArgb(124, 58, 237); // brand violet #7C3AED
@@ -185,29 +334,18 @@ namespace Tailport
             var cancel = new Button
             {
                 Text = "Cancel",
-                Left = pad + labelW + inputW - 82,
-                Top = y + 8,
-                Width = 82,
+                Left = pad + fullW - 86,
+                Top = y,
+                Width = 86,
                 Height = 28,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             cancel.FlatAppearance.BorderColor = _c.Border;
             cancel.BackColor = _c.Bg;
             cancel.ForeColor = _c.Text;
             cancel.Click += delegate { Close(); };
             Controls.Add(cancel);
-            y += 52;
-
-            var footer = new Label
-            {
-                Text = "Saved changes apply on the next Turn ON.",
-                Left = pad,
-                Top = y,
-                Width = 420,
-                ForeColor = _c.TextDisabled,
-                Font = Font
-            };
-            Controls.Add(footer);
 
             AcceptButton = save;
             CancelButton = cancel;

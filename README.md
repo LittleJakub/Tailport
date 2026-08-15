@@ -45,16 +45,19 @@ service is yours.
 
 ## Configuration
 
-Everything is in `tailport.config` (plain `key=value`, `#` comments):
+Everything is in `tailport.config` (plain `key=value`, `#` comments).
+A fresh clone starts from `tailport.config.example` — copy it to
+`tailport.config` (that file is git-ignored: it holds your machine
+paths and tailnet addresses) and edit:
 
 ```ini
-pythonw=C:\Path\To\pythonw.exe   # the hidden Python that runs the forwarder
-wsl_distro=Ubuntu                # your WSL2 distro running tailscaled
-socks_host=127.0.0.1             # tailscaled SOCKS5 (WSL2 userspace mode)
+pythonw=C:\Path\To\pythonw.exe          # the hidden Python that runs the forwarder
+wsl_distro=Ubuntu                       # your WSL2 distro running tailscaled
+socks_host=127.0.0.1                    # tailscaled SOCKS5 (WSL2 userspace mode)
 socks_port=1055
-llm_local_port=8080              # local door for the LLM forward (status anchor)
-llm_target=100.101.102.103:8080   # tailnet LLM server
-forward.1=2283:100.101.102.103:2283   # extra forwards: local:tailnet-ip:port
+llm_local_port=8080                     # local door for the LLM forward (status anchor)
+llm_target=100.101.102.103:8080         # tailnet LLM server (replace with YOUR tailnet IP)
+forward.1=2283:100.101.102.103:2283     # extra forwards: local:tailnet-ip:port
 forward.2=8001:100.101.102.103:8001
 ```
 
@@ -79,7 +82,8 @@ runtime deps) with a violet 2026 theme, glow hover, pastel state colors:
 src/            C# tray app source (WinForms, net48) -> build.cmd publishes it
 build.cmd       builds Tailport.exe into the repo root (the runtime folder)
 forwarder.py    the Python SOCKS5 forwarder (lives next to the exe at runtime)
-tailport.config every address and port the door exposes (edit me)
+tailport.config.example every address and port the door exposes (copy -> tailport.config)
+tailport.config personal runtime config (git-ignored; machine paths + tailnet IPs)
 config.cmd      loads tailport.config for the .cmd scripts (call config.cmd)
 start.cmd       manual CLI path: boot WSL + start the forwarder
 stop.cmd        manual CLI path: stop the forwarder
@@ -96,8 +100,9 @@ assets/         icons (app tile, tray states)
 2. **Bootstrap**: double-click `bootstrap.cmd` — it installs tailscaled inside
    WSL2 (userspace + SOCKS5, exactly the author's proven rig) and starts the
    login flow (a browser URL appears — approve it with your Tailscale account).
-3. **Configure**: edit `tailport.config` (or right-click the tray icon →
-   **Settings**) with your server's tailnet IP and the ports you want.
+3. **Configure**: copy `tailport.config.example` to `tailport.config`, then
+   edit it (or right-click the tray icon → **Settings**) with your server's
+   tailnet IP and the ports you want.
 4. **Go**: double-click `Tailport.exe`, click **Turn ON** — every configured
    service now answers on `localhost`.
 

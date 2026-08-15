@@ -11,7 +11,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <Version>1.6.0</Version>
+    <Version>1.6.1</Version>
     <Authors>LittleJakub</Authors>
     <Product>Tailport</Product>
     <Description>Tailport - one-click tailnet access for Windows: LLMs, SSH, self-hosted apps (Astrill-safe)</Description>
@@ -19,6 +19,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="app.config" />
   </ItemGroup>
 
   <ItemGroup>
