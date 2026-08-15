@@ -11,7 +11,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <Version>1.8.0</Version>
+    <Version>1.8.1</Version>
     <Authors>LittleJakub</Authors>
     <Product>Tailport</Product>
     <Description>Tailport - the Astrill-safe door to your Tailscale tailnet: reach any tailnet service from Windows while a VPN (Astrill, etc.) blocks the Tailscale client</Description>

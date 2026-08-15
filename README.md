@@ -26,9 +26,7 @@ any tailnet service (Immich :2283, SSH :22, llama.cpp :8080, ...)
 
 | Local address | Service |
 |---|---|
-| `http://localhost:2283` | the status anchor — Immich photos (smallest local port) |
-| `http://localhost:8001` | Paperless-ngx documents (or anything else you add) |
-| `http://localhost:8080` | an OpenAI-compatible LLM (or anything else you add) |
+| `http://localhost:<port>` | every service you list in the config — SSH, a NAS, Immich, anything on your tailnet |
 
 The forward with the smallest local port is the status anchor the tray icon
 health-checks (it only needs to answer TCP, so SSH and plain services work
@@ -39,7 +37,7 @@ is yours.
 
 | Problem | Tailport answer |
 |---|---|
-| Astrill + Tailscale on Windows = mutual destruction | Tailscale never touches the Windows stack — it lives in WSL2 |
+| Any strict VPN + Tailscale on Windows = mutual destruction (Astrill, corporate VPNs...) | Tailscale never touches the Windows stack — it lives in WSL2 |
 | Proxy-unaware apps can't use SOCKS5 | A local forwarder exposes the tunnel as plain localhost ports |
 | WSL2 kills the VM after ~60s idle | A hidden "keeper" session holds it open while the service is ON |
 | Setup is fiddly | The setup wizard checks WSL2 and writes the config for you |

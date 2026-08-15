@@ -49,6 +49,7 @@ namespace Tailport
         private ToolStripMenuItem _statusItem;
         private ToolStripMenuItem _toggleItem;
         private Icon _currentIcon;
+        private static Icon _balloonIcon; // full app icon for toast balloons
         private DateTime _lastLeftClick;
         private volatile bool _running;
         private volatile bool _reachable;
@@ -95,7 +96,7 @@ namespace Tailport
             check.Click += delegate
             {
                 RefreshStatus();
-                _icon.ShowBalloonTip(2500, "Tailport", StatusLine(), ToolTipIcon.Info);
+                Balloon(StatusLine());
             };
 
             var settings = NewItem("Settings\u2026", true);
@@ -157,6 +158,27 @@ namespace Tailport
             return new ToolStripSeparator();
         }
 
+        /// <summary>Toast balloons carry the full violet app icon, not the
+        /// small on/off tray glyph: swap it in for the balloon, restore the
+        /// state glyph right after (the balloon keeps the icon it was shown
+        /// with).</summary>
+        private void Balloon(string text, ToolTipIcon tip = ToolTipIcon.Info, int ms = 2500)
+        {
+            if (_balloonIcon == null)
+                _balloonIcon = LoadIcon(Path.Combine(AssetsDir, "app.ico"));
+            if (_balloonIcon != null)
+            {
+                var old = _icon.Icon;
+                _icon.Icon = _balloonIcon;
+                _icon.ShowBalloonTip(ms, "Tailport", text, tip);
+                _icon.Icon = old;
+            }
+            else
+            {
+                _icon.ShowBalloonTip(ms, "Tailport", text, tip);
+            }
+        }
+
         // ================= toggle =================
 
         private void Toggle()
@@ -177,20 +199,17 @@ namespace Tailport
                 if (_running)
                 {
                     TurnOff();
-                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailport", "Service OFF", ToolTipIcon.Info); });
+                    Ui(delegate { Balloon("Service OFF"); });
                 }
                 else
                 {
                     TurnOn();
-                    Ui(delegate { _icon.ShowBalloonTip(2500, "Tailport", "Service ON - syncing...", ToolTipIcon.Info); });
+                    Ui(delegate { Balloon("Service ON - syncing..."); });
                 }
             }
             catch (Exception ex)
             {
-                Ui(delegate
-                {
-                    _icon.ShowBalloonTip(4000, "Tailport", "Error: " + ex.Message, ToolTipIcon.Error);
-                });
+                Ui(delegate { Balloon("Error: " + ex.Message, ToolTipIcon.Error, 4000); });
             }
             finally
             {
@@ -460,8 +479,7 @@ namespace Tailport
                 {
                     LoadConfig();
                     RefreshStatus();
-                    _icon.ShowBalloonTip(2500, "Tailport",
-                        "Config saved - Turn OFF/ON to apply.", ToolTipIcon.Info);
+                    Balloon("Config saved - Turn OFF/ON to apply.");
                 }
             }
         }

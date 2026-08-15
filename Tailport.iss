@@ -75,30 +75,32 @@ var
   ForwardsMemo: TNewMemo;
   WslOk, DistroOk, TailscaleOk: Boolean;
   DetectedPythonw: String;
+  OwnIp: String; { this PC's own tailnet IP, when detectable }
 
 { ---- helpers ------------------------------------------------- }
 
-function ExecCapture(const Params: String): Integer;
+function RunCapture(const CmdLine: String): Integer;
 var
-  CmdLine: String;
+  TmpFile: String;
 begin
-  CmdLine := 'wsl.exe ' + Params + ' > "' + ExpandConstant(TMP_OUT) + '" 2>&1';
-  Exec('cmd.exe', '/c ' + CmdLine, '', SW_HIDE, ewWaitUntilTerminated, Result);
+  TmpFile := ExpandConstant(TMP_OUT);
+  Exec('cmd.exe', '/c ' + CmdLine + ' > "' + TmpFile + '" 2>&1', '', SW_HIDE,
+       ewWaitUntilTerminated, Result);
 end;
 
 function WslInstalled: Boolean;
 begin
-  Result := ExecCapture('--status') = 0;
+  Result := RunCapture('wsl.exe --status') = 0;
 end;
 
 function DistroAvailable: Boolean;
 begin
-  Result := ExecCapture('-d ' + WSL_DISTRO + ' -u root -- echo ok') = 0;
+  Result := RunCapture('wsl.exe -d ' + WSL_DISTRO + ' -u root -- echo ok') = 0;
 end;
 
 function TailscaleRunning: Boolean;
 begin
-  Result := ExecCapture('-d ' + WSL_DISTRO + ' -u root -- systemctl is-active tailscaled') = 0;
+  Result := RunCapture('wsl.exe -d ' + WSL_DISTRO + ' -u root -- systemctl is-active tailscaled') = 0;
 end;
 
 function WslNotReady: Boolean;
@@ -106,21 +108,54 @@ begin
   Result := not TailscaleOk;
 end;
 
-function DetectPythonw: String;
+{ --- python detection: find a pythonw that can actually run the
+      forwarder (imports pysocks). `where pythonw` alone is not
+      enough - it may find a venv or Store stub without pysocks. }
+
+function PythonHasSocks(const PyW: String): Boolean;
+begin
+  Result := RunCapture('"' + PyW + '" -c "import socks"') = 0;
+end;
+
+function FirstLineOf(const TmpFile: String): String;
 var
-  TmpFile: String;
-  Content: AnsiString; { LoadStringFromFile fills an AnsiString buffer }
+  Content: AnsiString;
   P: Integer;
 begin
   Result := '';
+  if not LoadStringFromFile(TmpFile, Content) then Exit;
+  P := Pos(#13#10, Content);
+  if P > 0 then Result := Copy(Content, 1, P - 1)
+  else if Trim(Content) <> '' then Result := Trim(Content);
+end;
+
+function DetectPythonw: String;
+var
+  TmpFile: String;
+  PyExe: String;
+begin
+  Result := '';
   TmpFile := ExpandConstant(TMP_OUT);
-  Exec('cmd.exe', '/c where pythonw > "' + TmpFile + '" 2>&1', '', SW_HIDE,
-       ewWaitUntilTerminated, P);
-  if LoadStringFromFile(TmpFile, Content) then
+
+  { 1) the py launcher points at the real interpreter }
+  if RunCapture('py -3 -c "import sys;print(sys.executable)"') = 0 then
   begin
-    P := Pos(#13#10, Content);
-    if P > 0 then Result := Copy(Content, 1, P - 1)
-    else if Trim(Content) <> '' then Result := Trim(Content);
+    PyExe := FirstLineOf(TmpFile);
+    if Pos('python.exe', PyExe) > 0 then
+    begin
+      Result := Copy(PyExe, 1, Length(PyExe) - Length('python.exe')) + 'pythonw.exe';
+      if not PythonHasSocks(Result) then Result := '';
+    end;
+  end;
+
+  { 2) fallback: pythonw from PATH, but only if pysocks is there }
+  if Result = '' then
+  begin
+    if RunCapture('where pythonw') = 0 then
+    begin
+      Result := FirstLineOf(TmpFile);
+      if (Result <> '') and not PythonHasSocks(Result) then Result := '';
+    end;
   end;
 end;
 
@@ -140,6 +175,13 @@ begin
     if DistroOk then TailscaleOk := TailscaleRunning;
   end;
   DetectedPythonw := DetectPythonw;
+
+  { remember this PC's own tailnet IP (when tailscaled is running here)
+    so the wizard can warn when the user types it by mistake }
+  OwnIp := '';
+  if TailscaleOk then
+    if RunCapture('wsl.exe -d ' + WSL_DISTRO + ' -u root -- tailscale ip -4') = 0 then
+      OwnIp := FirstLineOf(ExpandConstant(TMP_OUT));
 
   { --- WSL2 check page --- }
   WslPage := CreateCustomPage(wpLicense, 'WSL2 check',
@@ -212,7 +254,7 @@ begin
     Parent := CfgPage.Surface;
     Left := ScaleX(12);
     Top := ScaleY(68);
-    Caption := 'Tailnet IP of the machine running your services (tailscale ip -4):';
+    Caption := 'Tailnet IP of the machine running your services:';
   end;
 
   IpEdit := TNewEdit.Create(CfgPage);
@@ -229,7 +271,18 @@ begin
   begin
     Parent := CfgPage.Surface;
     Left := ScaleX(12);
-    Top := ScaleY(132);
+    Top := ScaleY(114);
+    Width := CfgPage.SurfaceWidth - ScaleX(24);
+    WordWrap := True;
+    Caption := 'NOT this PC - run "tailscale ip -4" on the other machine that runs the services and paste its IP here.';
+    Font.Color := $00808080;
+  end;
+
+  with TNewStaticText.Create(CfgPage) do
+  begin
+    Parent := CfgPage.Surface;
+    Left := ScaleX(12);
+    Top := ScaleY(148);
     Caption := 'Port forwards - one per line: local:tailnet-ip:port';
   end;
 
@@ -238,11 +291,22 @@ begin
   begin
     Parent := CfgPage.Surface;
     Left := ScaleX(12);
-    Top := ScaleY(152);
+    Top := ScaleY(168);
     Width := CfgPage.SurfaceWidth - ScaleX(24);
-    Height := ScaleY(120);
+    Height := ScaleY(112);
     ScrollBars := ssVertical;
     Text := '';
+  end;
+
+  with TNewStaticText.Create(CfgPage) do
+  begin
+    Parent := CfgPage.Surface;
+    Left := ScaleX(12);
+    Top := ScaleY(286);
+    Width := CfgPage.SurfaceWidth - ScaleX(24);
+    WordWrap := True;
+    Caption := 'Example: 2283:100.101.102.103:2283  (local port : that machine''s tailnet IP : port). Leave empty to configure later in Settings.';
+    Font.Color := $00808080;
   end;
 end;
 
@@ -274,6 +338,18 @@ begin
              'on the machine hosting your services). No port, no host:port.', mbError, MB_OK);
       Result := False;
       Exit;
+    end;
+
+    { guard: entering this PC's own tailnet IP is a classic mistake }
+    if (OwnIp <> '') and (Ip = OwnIp) then
+    begin
+      if MsgBox('That is THIS computer''s own tailnet IP (' + OwnIp + ').' + #13#10 +
+                'Your services usually run on a different machine. Continue anyway?',
+                mbConfirmation, MB_YESNO) = IDNO then
+      begin
+        Result := False;
+        Exit;
+      end;
     end;
     Parts := TStringList.Create;
     try
