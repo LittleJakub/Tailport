@@ -15,8 +15,11 @@ if not exist "%INNO_DIR%\ISCC.exe" (
 )
 
 REM read the version from the project (single source of truth)
+REM two-step parse: the csproj line is indented, so delims on '=' and '<'
+REM (delims=<> alone would make the indent a separate token)
 set "TPVER="
-for /f "tokens=2 delims=<>" %%V in ('findstr "<Version>" "%~dp0src\Tailport.csproj"') do set "TPVER=%%V"
+for /f "tokens=1,* delims==" %%V in ('findstr "<Version>" "%~dp0src\Tailport.csproj"') do set "TPVER=%%W"
+for /f "tokens=1 delims=<" %%V in ("%TPVER%") do set "TPVER=%%V"
 if not defined TPVER set "TPVER=1.8.0"
 
 echo Building TailportSetup-%TPVER%.exe ...

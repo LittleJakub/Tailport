@@ -320,7 +320,7 @@ begin
       template instead of writing a config with empty values }
     if Trim(IpEdit.Text) = '' then
     begin
-      FileCopy(ExpandConstant('{app}\tailport.config.example'), ConfigPath, False);
+      CopyFile(ExpandConstant('{app}\tailport.config.example'), ConfigPath, False);
       Exit;
     end;
 
