@@ -110,37 +110,53 @@ end;
 
 { --- python detection: find a pythonw that can actually run the
       forwarder (imports pysocks). `where pythonw` alone is not
-      enough - it may find a venv or Store stub without pysocks. }
+      enough - it may find a venv or Store stub without pysocks.
+      NOTE: the probes are written as .cmd files and run via
+      `cmd /c <file>` - passing `-c "..."` inline through cmd /c
+      eats the inner quotes (SyntaxError) and detection fails. }
 
-function PythonHasSocks(const PyW: String): Boolean;
-begin
-  Result := RunCapture('"' + PyW + '" -c "import socks"') = 0;
-end;
-
-function FirstLineOf(const TmpFile: String): String;
+function FirstLineOf(const FileName: String): String;
 var
   Content: AnsiString;
   P: Integer;
 begin
   Result := '';
-  if not LoadStringFromFile(TmpFile, Content) then Exit;
+  if not LoadStringFromFile(FileName, Content) then Exit;
   P := Pos(#13#10, Content);
   if P > 0 then Result := Copy(Content, 1, P - 1)
   else if Trim(Content) <> '' then Result := Trim(Content);
 end;
 
+{ true when <pythonw> can import pysocks }
+function PythonHasSocks(const PyW: String): Boolean;
+var
+  Cmd: String;
+  Code: Integer;
+begin
+  Cmd := ExpandConstant('{tmp}\tp_socks.cmd');
+  SaveStringToFile(Cmd, '@echo off' + #13#10 +
+    '"' + PyW + '" -c "import socks" >nul 2>&1' + #13#10, False);
+  Exec('cmd.exe', '/c ' + Cmd, '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := Code = 0;
+end;
+
 function DetectPythonw: String;
 var
-  TmpFile: String;
+  Cmd, OutFile: String;
+  Code: Integer;
   PyExe: String;
 begin
   Result := '';
-  TmpFile := ExpandConstant(TMP_OUT);
+  OutFile := ExpandConstant('{tmp}\tp_py.txt');
 
   { 1) the py launcher points at the real interpreter }
-  if RunCapture('py -3 -c "import sys;print(sys.executable)"') = 0 then
+  Cmd := ExpandConstant('{tmp}\tp_pydetect.cmd');
+  SaveStringToFile(Cmd, '@echo off' + #13#10 +
+    'py -3 -c "import sys;print(sys.executable)" > "' + OutFile + '" 2>&1' + #13#10, False);
+  Exec('cmd.exe', '/c ' + Cmd, '', SW_HIDE, ewWaitUntilTerminated, Code);
+  if Code = 0 then
   begin
-    PyExe := FirstLineOf(TmpFile);
+    PyExe := FirstLineOf(OutFile);
     if Pos('python.exe', PyExe) > 0 then
     begin
       Result := Copy(PyExe, 1, Length(PyExe) - Length('python.exe')) + 'pythonw.exe';
@@ -153,7 +169,7 @@ begin
   begin
     if RunCapture('where pythonw') = 0 then
     begin
-      Result := FirstLineOf(TmpFile);
+      Result := FirstLineOf(ExpandConstant(TMP_OUT));
       if (Result <> '') and not PythonHasSocks(Result) then Result := '';
     end;
   end;

@@ -214,7 +214,7 @@ namespace Tailport
             return box;
         }
 
-        private int Section(string title, int pad, int y)
+        private int Section(string title, int pad, int y, int lineW)
         {
             var lbl = new Label
             {
@@ -232,7 +232,7 @@ namespace Tailport
             {
                 Left = pad + 170,
                 Top = y + 7,
-                Width = 480,
+                Width = lineW,
                 Height = 1,
                 BackColor = _c.Separator
             };
@@ -270,22 +270,22 @@ namespace Tailport
             ForeColor = _c.Text;
 
             const int pad = 9;             // small content pad - mirrored by self-size so left/right match
-            const int cell = 218;            // 3-column grid cell (door section)
-            const int cgap = 14;             // gap between grid cells
-            const int fullW = cell * 3 + cgap * 2; // 682 = full content width
+            const int cell = 160;            // 3-column grid cell (door section)
+            const int cgap = 12;             // gap between grid cells
+            const int fullW = cell * 3 + cgap * 2; // 504 = full content width
             int y = 12;
 
             // ---- tailnet door ----
             // One 3-column row for the short values; the long python path gets a
             // full-width row of its own below (label directly above its field).
-            y = Section("TAILNET DOOR", pad, y);
+            y = Section("TAILNET DOOR", pad, y, fullW - 170);
 
             _distro = AddCell("WSL distro", Get(_cfg, "wsl_distro", "Ubuntu"),
-                "Linux distro running tailscaled in WSL2.", pad, y, cell);
+                "Linux distro running tailscaled in WSL2.", pad, y, cell, 210);
             _socksHost = AddCell("SOCKS host", Get(_cfg, "socks_host", "127.0.0.1"),
-                "SOCKS5 proxy exposed by tailscaled.", pad + cell + cgap, y, cell);
+                "SOCKS5 proxy exposed by tailscaled.", pad + cell + cgap, y, cell, 210);
             _socksPort = AddCell("SOCKS port", Get(_cfg, "socks_port", "1055"),
-                "The tailnet door - usually 1055.", pad + 2 * (cell + cgap), y, cell);
+                "Tailnet door - usually 1055.", pad + 2 * (cell + cgap), y, cell);
 
             // Row pitch is derived from the box's REAL (font-locked) height so
             // hints stay below the boxes at every DPI: label gap 24 + boxH +
@@ -327,7 +327,7 @@ namespace Tailport
 
             // ---- port forwards (the whole service list - one list) ----
             y += 6;
-            y = Section("PORT FORWARDS", pad, y);
+            y = Section("PORT FORWARDS", pad, y, fullW - 170);
 
             var lbl = new Label
             {
@@ -341,7 +341,7 @@ namespace Tailport
             };
             Controls.Add(lbl);
 
-            _forwards = MakeBox(string.Join("\r\n", ForwardLines()), fullW, 52);
+            _forwards = MakeBox(string.Join("\r\n", ForwardLines()), fullW, 84);
             _forwards.Left = pad;
             _forwards.Top = y + 24;
             _forwards.Multiline = true;
@@ -351,7 +351,7 @@ namespace Tailport
 
             var fhint = new Label
             {
-                Text = "One per line: local:tailnet-ip:port   (e.g. 2283:100.101.102.103:2283).  The smallest local port is the status anchor.",
+                Text = "One per line: local:tailnet-ip:port. The smallest local port is the status anchor.",
                 Left = pad,
                 Top = _forwards.Bottom + 4,
                 Width = fullW,
@@ -361,15 +361,17 @@ namespace Tailport
                 BackColor = Color.Transparent
             };
             Controls.Add(fhint);
-            _tip.SetToolTip(_forwards, fhint.Text);
-            y += 98;
+            _tip.SetToolTip(_forwards,
+                "One per line: local:tailnet-ip:port (e.g. 2283:100.101.102.103:2283). The smallest local port is the status anchor.");
+            // footer row anchors to the hint's REAL bottom (box height varies)
+            y = fhint.Bottom + 8;
 
             // ---- actions: footer left, buttons right ----
             var footer = new Label
             {
                 Text = "Saved changes apply on the next Turn ON.",
                 Left = pad,
-                Top = y + 8,
+                Top = y + 7, // vertically centered against the 28px buttons
                 Width = 400,
                 ForeColor = _c.TextDisabled,
                 Font = Font,

@@ -50,6 +50,7 @@ namespace Tailport
         private ToolStripMenuItem _toggleItem;
         private Icon _currentIcon;
         private static Icon _balloonIcon; // full app icon for toast balloons
+        private volatile bool _balloonShowing; // RefreshStatus must not stomp the balloon icon
         private DateTime _lastLeftClick;
         private volatile bool _running;
         private volatile bool _reachable;
@@ -159,19 +160,26 @@ namespace Tailport
         }
 
         /// <summary>Toast balloons carry the full violet app icon, not the
-        /// small on/off tray glyph: swap it in for the balloon, restore the
-        /// state glyph right after (the balloon keeps the icon it was shown
-        /// with).</summary>
+        /// small on/off tray glyph. The swap must survive until the balloon
+        /// is drawn AND the 10s status tick must not stomp it, so the state
+        /// glyph is only restored when the balloon closes.</summary>
         private void Balloon(string text, ToolTipIcon tip = ToolTipIcon.Info, int ms = 2500)
         {
             if (_balloonIcon == null)
                 _balloonIcon = LoadIcon(Path.Combine(AssetsDir, "app.ico"));
             if (_balloonIcon != null)
             {
-                var old = _icon.Icon;
+                EventHandler onClose = null;
+                onClose = delegate
+                {
+                    _balloonShowing = false;
+                    _icon.BalloonTipClosed -= onClose;
+                    RefreshStatus(); // restore the correct state glyph now
+                };
+                _icon.BalloonTipClosed += onClose;
+                _balloonShowing = true;
                 _icon.Icon = _balloonIcon;
                 _icon.ShowBalloonTip(ms, "Tailport", text, tip);
-                _icon.Icon = old;
             }
             else
             {
@@ -328,7 +336,7 @@ namespace Tailport
             string glyph = running ? "on.ico" : "off.ico";
 
             var newIcon = LoadIcon(Path.Combine(AssetsDir, glyph));
-            if (newIcon != null)
+            if (!_balloonShowing && newIcon != null)
             {
                 var old = _currentIcon;
                 _currentIcon = newIcon;
