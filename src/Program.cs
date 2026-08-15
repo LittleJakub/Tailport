@@ -35,7 +35,7 @@ namespace Tailport
         private static readonly string AppBase = AppDomain.CurrentDomain.BaseDirectory;
         private static readonly string AssetsDir = Path.Combine(AppBase, "assets");
         private static string PythonW = "pythonw";
-        private static int MainPort = 8080;
+        private static int AnchorPort; // status anchor: smallest forward.N local port (0 = none)
         private static string WslDistro = "Ubuntu";
         private static readonly string ForwarderScript = Path.Combine(AppBase, "forwarder.py");
         private static readonly string ForwarderPid = Path.Combine(AppBase, "forwarder.pid");
@@ -273,12 +273,21 @@ namespace Tailport
                         case "pythonw":
                             if (v.Length > 0) PythonW = v;
                             break;
-                        case "main_local_port":
-                            int p;
-                            if (int.TryParse(v, out p) && p > 0) MainPort = p;
-                            break;
                         case "wsl_distro":
                             if (v.Length > 0) WslDistro = v;
+                            break;
+                        default:
+                            // one list: forward.N = local:host:port.
+                            // The smallest local port is the status anchor
+                            // the tray probes (matches forwarder.py's sort).
+                            if (k.StartsWith("forward."))
+                            {
+                                int colon = v.IndexOf(':');
+                                int lp;
+                                if (colon > 0 && int.TryParse(v.Substring(0, colon), out lp) &&
+                                    lp > 0 && (AnchorPort == 0 || lp < AnchorPort))
+                                    AnchorPort = lp;
+                            }
                             break;
                     }
                 }
@@ -324,14 +333,17 @@ namespace Tailport
 
         private static bool ProbeHealth()
         {
-            // Universal liveness probe: a plain TCP connect to the main
-            // forward's local door. Any tailnet service answers TCP (SSH,
-            // Immich, an LLM...) - no HTTP /health endpoint required.
+            // Universal liveness probe: a plain TCP connect to the status
+            // anchor - the forward with the smallest local port. Any tailnet
+            // service answers TCP (SSH, Immich, an LLM...) - no HTTP /health
+            // endpoint required.
+            if (AnchorPort <= 0)
+                return false;
             try
             {
                 using (var tcp = new System.Net.Sockets.TcpClient())
                 {
-                    var ar = tcp.BeginConnect("127.0.0.1", MainPort, null, null);
+                    var ar = tcp.BeginConnect("127.0.0.1", AnchorPort, null, null);
                     if (!ar.AsyncWaitHandle.WaitOne(3000))
                         return false;
                     tcp.EndConnect(ar);

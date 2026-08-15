@@ -9,8 +9,9 @@ ever touching the Windows network stack (so it never fights
 Astrill or any other VPN).
 
 The service list comes from tailport.config (next to this script):
-  main_local_port / main_target    the primary forward (status anchor)
-  forward.N = local:host:port      extra forwards, any tailnet service
+  forward.N = local:host:port      one list, any tailnet service
+The forward with the smallest local port is the status anchor
+of the tray icon (it only needs to answer TCP).
 
 Chain:
   Windows app -> 127.0.0.1:<local> -> this script -> SOCKS5
@@ -71,26 +72,10 @@ def load_config(path):
     return cfg
 
 
-def split_host_port(spec):
-    """'host:port' -> (host, port); raises ValueError on garbage."""
-    host, _, port = spec.rpartition(":")
-    if not host or not port.isdigit():
-        raise ValueError(f"bad host:port '{spec}'")
-    return host, int(port)
-
-
 def forward_specs(cfg):
-    """Ordered [(local_port, host, port), ...]: the main forward + forward.N list."""
+    """Ordered [(local_port, host, port), ...]: every forward.N line, one list.
+    Sorted by local port so the first spec is the tray's status anchor."""
     specs = []
-    main_target = cfg.get("main_target")
-    if main_target:
-        try:
-            host, port = split_host_port(main_target)
-            local = int(cfg.get("main_local_port", "8080"))
-            specs.append((local, host, port))
-        except ValueError as e:
-            log(f"main forward skipped: {e}")
-    extras = []
     for k, v in cfg.items():
         if not k.startswith("forward."):
             continue
@@ -98,9 +83,9 @@ def forward_specs(cfg):
         if len(parts) != 3 or not parts[0].isdigit() or not parts[2].isdigit():
             log(f"bad forward entry {k}={v} (want local:host:port)")
             continue
-        extras.append((int(parts[0]), parts[1], int(parts[2])))
-    extras.sort(key=lambda s: s[0])
-    return specs + extras
+        specs.append((int(parts[0]), parts[1], int(parts[2])))
+    specs.sort(key=lambda s: s[0])
+    return specs
 
 
 # ---------------- SOCKS plumbing ----------------
@@ -190,7 +175,7 @@ def main():
 
     specs = forward_specs(cfg)
     if not specs:
-        log("no forwards configured - add main_target and/or forward.N to " + args.config)
+        log("no forwards configured - add forward.N lines to " + args.config)
         sys.exit(1)
 
     # bind everything FIRST: a busy port aborts startup cleanly instead of

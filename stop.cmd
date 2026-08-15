@@ -20,9 +20,9 @@ if defined KPID taskkill /PID %KPID% /F >nul 2>&1
 if defined KPID del "%~dp0keeper.pid" >nul 2>&1
 if defined KPID echo [OK] Keeper stopped - VM will shut down within ~1 min
 
-netstat -ano | findstr "127.0.0.1:%TP_MAIN_PORT%" | findstr /I LISTENING >nul 2>&1
-if errorlevel 1 echo [OK] Port %TP_MAIN_PORT% is free again.
-if not errorlevel 1 echo [!!] Port %TP_MAIN_PORT% still occupied by something.
+netstat -ano | findstr "127.0.0.1:%TP_ANCHOR_PORT%" | findstr /I LISTENING >nul 2>&1
+if errorlevel 1 echo [OK] Port %TP_ANCHOR_PORT% is free again.
+if not errorlevel 1 echo [!!] Port %TP_ANCHOR_PORT% still occupied by something.
 
 echo.
 pause

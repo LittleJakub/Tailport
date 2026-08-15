@@ -14,7 +14,7 @@ namespace Tailport
         private readonly ModernColors _c;
         private readonly Dictionary<string, string> _cfg = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        private TextBox _distro, _pythonw, _socksHost, _socksPort, _mainPort, _mainTarget, _forwards;
+        private TextBox _distro, _pythonw, _socksHost, _socksPort, _forwards;
         private readonly ToolTip _tip = new ToolTip();
         // design-time (96dpi) box heights, captured when each TextBox is created:
         // Scale() doubles Top/Left/Width but single-line TextBoxes are
@@ -325,18 +325,7 @@ namespace Tailport
             _tip.SetToolTip(_pythonw, "Runs the forwarder invisibly. Empty = PATH.");
             y += pitch;
 
-            // ---- main forward (the status anchor the tray probes) ----
-            y += 6;
-            y = Section("MAIN FORWARD", pad, y);
-
-            // Local port in grid column 1, target spanning columns 2-3.
-            _mainPort = AddCell("Local port", Get(_cfg, "main_local_port", "8080"),
-                "The door the tray icon health-check probes (status anchor).", pad, y, cell);
-            _mainTarget = AddCell("Target (ip:port)", Get(_cfg, "main_target", ""),
-                "Any tailnet service - e.g. an LLM, Immich, SSH...", pad + cell + cgap, y, cell * 2 + cgap);
-            y += pitch;
-
-            // ---- port forwards ----
+            // ---- port forwards (the whole service list - one list) ----
             y += 6;
             y = Section("PORT FORWARDS", pad, y);
 
@@ -362,7 +351,7 @@ namespace Tailport
 
             var fhint = new Label
             {
-                Text = "One per line: local:tailnet-ip:port   (e.g. 2283:100.101.102.103:2283).  Empty = main forward only.",
+                Text = "One per line: local:tailnet-ip:port   (e.g. 2283:100.101.102.103:2283).  The smallest local port is the status anchor.",
                 Left = pad,
                 Top = _forwards.Bottom + 4,
                 Width = fullW,
@@ -432,14 +421,10 @@ namespace Tailport
             string distro = _distro.Text.Trim();
             string sHost = _socksHost.Text.Trim();
             string sPort = _socksPort.Text.Trim();
-            string lPort = _mainPort.Text.Trim();
-            string lTarget = _mainTarget.Text.Trim();
 
             if (distro.Length == 0) { Warn("WSL distro cannot be empty."); return; }
             int ignored;
             if (!int.TryParse(sPort, out ignored) || ignored <= 0) { Warn("SOCKS port must be a number."); return; }
-            if (!int.TryParse(lPort, out ignored) || ignored <= 0) { Warn("Main forward local port must be a number."); return; }
-            if (lTarget.IndexOf(':') <= 0) { Warn("Main target must look like ip:port (e.g. 100.101.102.103:8080)."); return; }
 
             var forwards = new List<string>();
             foreach (var raw in _forwards.Text.Replace("\r", "").Split('\n'))
@@ -455,6 +440,11 @@ namespace Tailport
                     return;
                 }
                 forwards.Add(f);
+            }
+            if (forwards.Count == 0)
+            {
+                Warn("Add at least one forward (local:tailnet-ip:port) - the door needs a service list.");
+                return;
             }
 
             lines.Add("# ============================================================");
@@ -473,17 +463,10 @@ namespace Tailport
             lines.Add("socks_host=" + sHost);
             lines.Add("socks_port=" + sPort);
             lines.Add("");
-            lines.Add("# main forward (status anchor of the tray icon)");
-            lines.Add("main_local_port=" + lPort);
-            lines.Add("main_target=" + lTarget);
+            lines.Add("# port forwards: local:tailnet-ip:port (one list)");
+            for (int i = 0; i < forwards.Count; i++)
+                lines.Add("forward." + (i + 1) + "=" + forwards[i]);
             lines.Add("");
-            if (forwards.Count > 0)
-            {
-                lines.Add("# extra port forwards: local:tailnet-ip:port");
-                for (int i = 0; i < forwards.Count; i++)
-                    lines.Add("forward." + (i + 1) + "=" + forwards[i]);
-                lines.Add("");
-            }
 
             try
             {

@@ -27,15 +27,12 @@ wsl_distro=Ubuntu
 socks_host=127.0.0.1
 socks_port=1055
 
-# --- main forward (the door the tray health-check probes) ----
-# Local port on THIS machine -> any tailnet service (LLM, NAS, Immich...).
-main_local_port=8080
-main_target=100.101.102.103:8080
-
-# --- extra port forwards: ANY tailnet service ---------------
+# --- port forwards: every service the door exposes ----------
 # format: forward.N = local_port:tailnet_ip:tailnet_port
-# Each line opens http://localhost:<local_port> on this machine,
-# tunneled through the tailnet door to the target service.
+# One list - each line opens http://localhost:<local_port> on this
+# machine, tunneled through the tailnet door to the target service.
+# The smallest local port is the status anchor of the tray icon.
 # Examples: Immich photos (2283), Paperless docs (8001), SSH (22), ...
 forward.1=2283:100.101.102.103:2283
 forward.2=8001:100.101.102.103:8001
+forward.3=8080:100.101.102.103:8080

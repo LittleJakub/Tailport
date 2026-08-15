@@ -2,9 +2,9 @@
 REM ============================================================
 REM  start.cmd - start the Tailport tailnet door (hidden)
 REM
-REM  Chain: app -> 127.0.0.1:<main_port> -> forwarder -> SOCKS5
+REM  Chain: app -> 127.0.0.1:<anchor_port> -> forwarder -> SOCKS5
 REM          -> WSL2 tailscaled -> ANY tailnet service
-REM          (main forward, plus every forward.N from config)
+REM          (every forward.N from config)
 REM
 REM  Idempotent: safe to run again. WSL boots automatically if
 REM  it was stopped. Values come from tailport.config (via config.cmd).
@@ -38,9 +38,9 @@ powershell -NoProfile -Command "$p = Start-Process -WindowStyle Hidden wsl -Argu
 
 REM 6) Wait for the VM to finish booting, then report
 ping -n 13 127.0.0.1 >nul
-netstat -ano | findstr "127.0.0.1:%TP_MAIN_PORT%" | findstr /I LISTENING >nul 2>&1
+netstat -ano | findstr "127.0.0.1:%TP_ANCHOR_PORT%" | findstr /I LISTENING >nul 2>&1
 if errorlevel 1 goto NOTLISTENING
-echo [OK] Forwarder is listening on 127.0.0.1:%TP_MAIN_PORT%
+echo [OK] Forwarder is listening on 127.0.0.1:%TP_ANCHOR_PORT%
 echo      Full chain test (allow ~20s for tailnet sync): run check.cmd
 goto DONE
 :NOTLISTENING

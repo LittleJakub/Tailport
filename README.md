@@ -26,13 +26,14 @@ any tailnet service (Immich :2283, SSH :22, llama.cpp :8080, ...)
 
 | Local address | Service |
 |---|---|
-| `http://localhost:8080` | the **main forward** — any tailnet service you pick (here: an OpenAI-compatible LLM) |
-| `http://localhost:2283` | Immich photos (or anything else you add) |
+| `http://localhost:2283` | the status anchor — Immich photos (smallest local port) |
 | `http://localhost:8001` | Paperless-ngx documents (or anything else you add) |
+| `http://localhost:8080` | an OpenAI-compatible LLM (or anything else you add) |
 
-The main forward is the door the tray icon health-checks (it only needs to
-answer TCP, so SSH and plain services work too). Add a line to the config,
-Turn OFF / Turn ON, and any tailnet service is yours.
+The forward with the smallest local port is the status anchor the tray icon
+health-checks (it only needs to answer TCP, so SSH and plain services work
+too). Add a line to the config, Turn OFF / Turn ON, and any tailnet service
+is yours.
 
 ## Why
 
@@ -55,10 +56,9 @@ pythonw=C:\Path\To\pythonw.exe          # the hidden Python that runs the forwar
 wsl_distro=Ubuntu                       # your WSL2 distro running tailscaled
 socks_host=127.0.0.1                    # tailscaled SOCKS5 (WSL2 userspace mode)
 socks_port=1055
-main_local_port=8080                     # local door for the main forward (status anchor)
-main_target=100.101.102.103:8080         # any tailnet service (replace with YOUR tailnet IP)
-forward.1=2283:100.101.102.103:2283     # extra forwards: local:tailnet-ip:port
-forward.2=8001:100.101.102.103:8001
+forward.1=2283:100.101.102.103:2283     # one list: local:tailnet-ip:port
+forward.2=8001:100.101.102.103:8001     # smallest local port = status anchor
+forward.3=8080:100.101.102.103:8080     # any tailnet service, any order
 ```
 
 Edit, save, Turn OFF / Turn ON. No rebuilds, no admin.
