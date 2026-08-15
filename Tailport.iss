@@ -242,9 +242,7 @@ begin
     Width := CfgPage.SurfaceWidth - ScaleX(24);
     Height := ScaleY(120);
     ScrollBars := ssVertical;
-    Text := '8080:<tailnet-ip>:8080' + #13#10 +
-            '2283:<tailnet-ip>:2283' + #13#10 +
-            '8001:<tailnet-ip>:8001';
+    Text := '';
   end;
 end;
 
@@ -269,9 +267,11 @@ begin
       Result := False;
       Exit;
     end;
-    if Pos(':', Ip) <= 0 then
+    { bare IP or hostname only - no port, no spaces }
+    if (Pos(':', Ip) > 0) or (Pos(' ', Ip) > 0) or (Pos('.', Ip) <= 0) then
     begin
-      MsgBox('The tailnet IP must be a Tailscale IP such as 100.101.102.103.', mbError, MB_OK);
+      MsgBox('Enter the tailnet IP only - e.g. 100.101.102.103 (run "tailscale ip -4"' + #13#10 +
+             'on the machine hosting your services). No port, no host:port.', mbError, MB_OK);
       Result := False;
       Exit;
     end;
