@@ -16,6 +16,12 @@ namespace Tailport
 
         private TextBox _distro, _pythonw, _socksHost, _socksPort, _llmPort, _llmTarget, _forwards;
         private readonly ToolTip _tip = new ToolTip();
+        // design-time (96dpi) box heights, captured when each TextBox is created:
+        // Scale() doubles Top/Left/Width but single-line TextBoxes are
+        // font-locked and keep their height -> the scaled layout leaves a
+        // shortfall between a box's real bottom and its hint. OnLoad compacts
+        // rows by that shortfall (see CompactAfterScale).
+        private readonly Dictionary<TextBox, int> _designHeights = new Dictionary<TextBox, int>();
 
         public SettingsForm(string configPath)
         {
@@ -34,17 +40,6 @@ namespace Tailport
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            // self-size: grow the window if any control exceeds it (safety net)
-            int maxRight = 0, maxBottom = 0;
-            foreach (Control c in Controls)
-            {
-                if (c.Right > maxRight) maxRight = c.Right;
-                if (c.Bottom > maxBottom) maxBottom = c.Bottom;
-            }
-            if (maxRight + 24 > ClientSize.Width)
-                ClientSize = new Size(maxRight + 24, ClientSize.Height);
-            if (maxBottom + 24 > ClientSize.Height)
-                ClientSize = new Size(ClientSize.Width, maxBottom + 24);
 
             // Render at the window's real DPI. WinForms' auto-scaling only fires
             // when AutoScaleDimensions (design) != CurrentAutoScaleDimensions
@@ -57,11 +52,79 @@ namespace Tailport
             if (Math.Abs(s - 1f) > 0.01f)
                 Scale(new SizeF(s, s));
 
+            // Scale() doubles Top/Left/Width, but single-line TextBoxes are
+            // font-locked and keep their design height (e.g. 39px at any DPI).
+            // Hints (placed at design box.Bottom + 4) and every following row
+            // would therefore float `designH*s - realH` px too low at >100%:
+            // that's the dead space between each field and its hint. Shift each
+            // row up by its box's shortfall so hints land at real bottom + 4*s.
+            CompactAfterScale(s);
+
+            // self-size: fit the window to the (possibly compacted) content -
+            // right pad mirrors the left content pad (28 logical) so the
+            // window stays symmetric at every DPI; height keeps a scaled
+            // margin. Grows AND shrinks so no dead space remains at any DPI.
+            int maxRight = 0, maxBottom = 0;
+            foreach (Control c in Controls)
+            {
+                if (c.Right > maxRight) maxRight = c.Right;
+                if (c.Bottom > maxBottom) maxBottom = c.Bottom;
+            }
+            const int pad = 9; // small content pad, mirrored on the right
+            int wantW = Math.Max(maxRight + (int)(pad * s), 300);
+            int wantH = Math.Max(maxBottom + (int)(18 * s), 200);
+            if (wantW != ClientSize.Width || wantH != ClientSize.Height)
+                ClientSize = new Size(wantW, wantH);
+
             // the python path is long: show its tail (the executable name)
             if (_pythonw != null && _pythonw.Text.Length > 0)
             {
                 _pythonw.SelectionStart = _pythonw.Text.Length;
                 _pythonw.ScrollToCaret();
+            }
+        }
+
+        /// <summary>
+        /// Single-line TextBoxes are font-locked: Scale() doubles their Top and
+        /// Width but their Height stays at the design value. Every coordinate
+        /// below a box was computed from the box's design bottom, so at &gt;100%
+        /// DPI those coordinates land `designH*s - realH` px lower than the
+        /// box's real bottom. Walk rows top-down: shift each row up by the
+        /// shortfall accumulated from the box rows above it, then add the
+        /// row's own box shortfall for the rows below. Hints then sit exactly
+        /// 4*s px under their box's real bottom and row pitch matches real
+        /// heights - correct by construction at any DPI (no-op at 100%).
+        /// </summary>
+        private void CompactAfterScale(float s)
+        {
+            var sorted = Controls.Cast<Control>()
+                .OrderBy(c => c.Top).ThenBy(c => c.Left)
+                .ToList();
+            int shift = 0;
+            int i = 0;
+            while (i < sorted.Count)
+            {
+                // one "row" = all controls sharing the same original Top
+                int rowTop = sorted[i].Top;
+                var row = new List<Control>();
+                while (i < sorted.Count && sorted[i].Top == rowTop)
+                {
+                    row.Add(sorted[i]);
+                    i++;
+                }
+                foreach (var c in row)
+                    c.Top -= shift;
+
+                // a row that contains a font-locked box adds its shortfall
+                // for every row below it (counted once per row)
+                var tb = row.OfType<TextBox>().FirstOrDefault();
+                int designH;
+                if (tb != null && _designHeights.TryGetValue(tb, out designH))
+                {
+                    int shortfall = (int)(designH * s) - tb.Height;
+                    if (shortfall > 0)
+                        shift += shortfall;
+                }
             }
         }
 
@@ -98,7 +161,7 @@ namespace Tailport
 
         private TextBox MakeBox(string value, int width, int height)
         {
-            return new TextBox
+            var box = new TextBox
             {
                 Left = 0, Top = 0, Width = width, Height = height,
                 Text = value,
@@ -107,10 +170,12 @@ namespace Tailport
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = Font
             };
+            _designHeights[box] = box.Height; // font-locked height BEFORE Scale
+            return box;
         }
 
-        /// <summary>One field cell (70px pitch): label, 24px gap, input, hint (14px tall, descenders never clip).</summary>
-        private TextBox AddCell(string label, string value, string hint, int x, int y, int w)
+        /// <summary>One field cell: label, 24px gap, input, hint (14px tall, descenders never clip).</summary>
+        private TextBox AddCell(string label, string value, string hint, int x, int y, int w, int hintW = 0)
         {
             var lbl = new Label
             {
@@ -129,12 +194,15 @@ namespace Tailport
             box.Top = y + 24;
             Controls.Add(box);
 
+            // Hint anchored to the box's REAL bottom: single-line TextBoxes are
+            // font-locked (39px @96dpi, 36px @192dpi) so a fixed offset would
+            // overlap the box at some DPI. box.Bottom + 4 is correct everywhere.
             var h = new Label
             {
                 Text = hint,
                 Left = x,
-                Top = y + 52,
-                Width = w,
+                Top = box.Bottom + 4,
+                Width = hintW > 0 ? hintW : w, // allow hints to span wider than the cell
                 Height = 14,
                 ForeColor = _c.TextDisabled,
                 Font = new Font(Font.FontFamily, 8.25f),
@@ -201,11 +269,10 @@ namespace Tailport
             BackColor = _c.Bg;
             ForeColor = _c.Text;
 
-            const int pad = 28;
+            const int pad = 9;             // small content pad - mirrored by self-size so left/right match
             const int cell = 218;            // 3-column grid cell (door section)
             const int cgap = 14;             // gap between grid cells
             const int fullW = cell * 3 + cgap * 2; // 682 = full content width
-            const int rowPitch = 70;
             int y = 12;
 
             // ---- tailnet door ----
@@ -219,7 +286,13 @@ namespace Tailport
                 "SOCKS5 proxy exposed by tailscaled.", pad + cell + cgap, y, cell);
             _socksPort = AddCell("SOCKS port", Get(_cfg, "socks_port", "1055"),
                 "The tailnet door - usually 1055.", pad + 2 * (cell + cgap), y, cell);
-            y += rowPitch;
+
+            // Row pitch is derived from the box's REAL (font-locked) height so
+            // hints stay below the boxes at every DPI: label gap 24 + boxH +
+            // hint gap 4 + hint 14 + row gap 4. 39px @96dpi -> 85, 36px @192dpi -> 82.
+            int boxH = _distro.Height;
+            int pitch = 24 + boxH + 4 + 14 + 4;
+            y += pitch;
 
             var pyLbl = new Label
             {
@@ -241,7 +314,7 @@ namespace Tailport
             {
                 Text = "Runs the forwarder invisibly. Empty = PATH.",
                 Left = pad,
-                Top = y + 57,
+                Top = _pythonw.Bottom + 4,
                 Width = fullW,
                 Height = 14,
                 ForeColor = _c.TextDisabled,
@@ -250,10 +323,10 @@ namespace Tailport
             };
             Controls.Add(pyHint);
             _tip.SetToolTip(_pythonw, "Runs the forwarder invisibly. Empty = PATH.");
-            y += 71;
+            y += pitch;
 
             // ---- LLM forwarder ----
-            y += 9;
+            y += 6;
             y = Section("LLM FORWARDER", pad, y);
 
             // Local port in grid column 1, target spanning columns 2-3.
@@ -261,10 +334,10 @@ namespace Tailport
                 "Where the LLM answers here (status anchor).", pad, y, cell);
             _llmTarget = AddCell("Target (ip:port)", Get(_cfg, "llm_target", ""),
                 "Your tailnet LLM - llama.cpp, Ollama...", pad + cell + cgap, y, cell * 2 + cgap);
-            y += rowPitch;
+            y += pitch;
 
             // ---- port forwards ----
-            y += 9;
+            y += 6;
             y = Section("PORT FORWARDS", pad, y);
 
             var lbl = new Label
@@ -291,7 +364,7 @@ namespace Tailport
             {
                 Text = "One per line: local:tailnet-ip:port   (e.g. 2283:100.101.102.103:2283).  Empty = LLM only.",
                 Left = pad,
-                Top = y + 80,
+                Top = _forwards.Bottom + 4,
                 Width = fullW,
                 Height = 14,
                 ForeColor = _c.TextDisabled,
@@ -300,7 +373,7 @@ namespace Tailport
             };
             Controls.Add(fhint);
             _tip.SetToolTip(_forwards, fhint.Text);
-            y += 103;
+            y += 98;
 
             // ---- actions: footer left, buttons right ----
             var footer = new Label
