@@ -15,6 +15,7 @@ namespace Tailport
         private readonly Dictionary<string, string> _cfg = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         private TextBox _distro, _pythonw, _socksHost, _socksPort, _forwards;
+        private Button _cancel;
         private readonly ToolTip _tip = new ToolTip();
         // design-time (96dpi) box heights, captured when each TextBox is created:
         // Scale() doubles Top/Left/Width but single-line TextBoxes are
@@ -59,6 +60,16 @@ namespace Tailport
             // that's the dead space between each field and its hint. Shift each
             // row up by its box's shortfall so hints land at real bottom + 4*s.
             CompactAfterScale(s);
+
+            // FixedSingle borders do NOT scale (1px at any DPI): a 160-wide
+            // box becomes 318 at 200% (client scales, border doesn't), so
+            // the boxes' real right edge ends 2px short of pad+fullW*s.
+            // Right-align Cancel to the boxes' ACTUAL right edge so the
+            // "cancel right edge == text box right edge" rule holds at
+            // every DPI (Scale() leaves buttons exact: 80 -> 160). Done
+            // BEFORE self-size so the window fits the aligned row exactly.
+            if (_cancel != null && _forwards != null)
+                _cancel.Left = _forwards.Right - _cancel.Width;
 
             // self-size: fit the window to the (possibly compacted) content -
             // right pad mirrors the left content pad (28 logical) so the
@@ -407,6 +418,7 @@ namespace Tailport
                 FlatStyle = FlatStyle.Flat
                 // no Anchor - see Save
             };
+            _cancel = cancel;
             cancel.FlatAppearance.BorderColor = _c.Border;
             cancel.BackColor = _c.Bg;
             cancel.ForeColor = _c.Text;
