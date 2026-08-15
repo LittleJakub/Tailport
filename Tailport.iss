@@ -29,7 +29,7 @@ SolidCompression=yes
 PrivilegesRequired=lowest
 CloseApplications=yes
 SetupLogging=yes
-WizardStyle=modern
+WizardStyle=modern dynamic
 LicenseFile=LICENSE
 
 [Languages]
@@ -293,7 +293,7 @@ begin
     Left := ScaleX(12);
     Top := ScaleY(168);
     Width := CfgPage.SurfaceWidth - ScaleX(24);
-    Height := ScaleY(112);
+    Height := ScaleY(84);
     ScrollBars := ssVertical;
     Text := '';
   end;
@@ -302,10 +302,10 @@ begin
   begin
     Parent := CfgPage.Surface;
     Left := ScaleX(12);
-    Top := ScaleY(286);
+    Top := ScaleY(258);
     Width := CfgPage.SurfaceWidth - ScaleX(24);
     WordWrap := True;
-    Caption := 'Example: 2283:100.101.102.103:2283  (local port : that machine''s tailnet IP : port). Leave empty to configure later in Settings.';
+    Caption := 'Example: 2283:100.101.102.103:2283 (local : IP : port) - leave empty to configure later in Settings.';
     Font.Color := $00808080;
   end;
 end;
