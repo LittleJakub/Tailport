@@ -42,7 +42,7 @@ is yours.
 | Astrill + Tailscale on Windows = mutual destruction | Tailscale never touches the Windows stack — it lives in WSL2 |
 | Proxy-unaware apps can't use SOCKS5 | A local forwarder exposes the tunnel as plain localhost ports |
 | WSL2 kills the VM after ~60s idle | A hidden "keeper" session holds it open while the service is ON |
-| Setup is fiddly | Everything lives in one config file; installer on the way |
+| Setup is fiddly | The setup wizard checks WSL2 and writes the config for you |
 
 ## Configuration
 
@@ -74,13 +74,15 @@ runtime deps) with a violet 2026 theme, glow hover, pastel state colors:
 - [x] Config-driven: one file describes the whole door (target, ports, forwards)
 - [x] In-app Settings window (edit the config from the tray menu)
 - [x] One-command WSL2 bootstrap for new users (bootstrap.cmd)
-- [ ] Setup wizard installer (asks for WSL2, tailnet IP, ports)
+- [x] Setup wizard installer (WSL2 check + tailnet IP/ports -> writes the config)
 
 ## Repository layout
 
 ```
 src/            C# tray app source (WinForms, net48) -> build.cmd publishes it
 build.cmd       builds Tailport.exe into the repo root (the runtime folder)
+Tailport.iss    Inno Setup script for the setup wizard (WSL2 check + config page)
+build-installer.cmd  compiles installer\TailportSetup-<version>.exe (needs Inno Setup 6)
 forwarder.py    the Python SOCKS5 forwarder (lives next to the exe at runtime)
 tailport.config.example every address and port the door exposes (copy -> tailport.config)
 tailport.config personal runtime config (git-ignored; machine paths + tailnet IPs)
@@ -95,6 +97,10 @@ assets/         icons (app tile, tray states)
 
 ## New machine setup
 
+Easiest: run `TailportSetup-x.y.z.exe` — the wizard checks WSL2, asks for
+your tailnet IP + ports and writes the config for you. Prefer manual? The
+steps below are exactly what the wizard does:
+
 1. **Windows side**: enable WSL2 (`wsl --install` in an admin PowerShell),
    install Ubuntu from the Store, reboot.
 2. **Bootstrap**: double-click `bootstrap.cmd` — it installs tailscaled inside
@@ -106,13 +112,13 @@ assets/         icons (app tile, tray states)
 4. **Go**: double-click `Tailport.exe`, click **Turn ON** — every configured
    service now answers on `localhost`.
 
-Needs on the Windows side: Python with `pysocks` for the forwarder (the
-upcoming installer wizard will handle this automatically).
+Needs on the Windows side: Python with `pysocks` for the forwarder
+(`pip install pysocks`).
 
 ## Requirements
 
 - Windows 10/11, WSL2 with a Linux distro, Tailscale account
-- Python 3 with `pysocks` for the forwarder (the installer handles this)
+- Python 3 with `pysocks` for the forwarder (`pip install pysocks`)
 - A remote machine on your tailnet running the services you want to reach
 - **No Tailscale installed on Windows** — that's the point
 

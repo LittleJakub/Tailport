@@ -12,6 +12,7 @@ config.yaml.bak*
 
 # dev artifacts
 *.pdb
+__pycache__/
 
 # OS
 Thumbs.db
@@ -24,6 +25,9 @@ Thumbs.db
 # built exe + config (build.cmd output)
 Tailport.exe
 Tailport.exe.config
+
+# installer output (Tailport.iss -> installer\TailportSetup-*.exe)
+installer/
 
 # personal runtime config (holds machine paths + tailnet addresses)
 tailport.config
