@@ -386,8 +386,10 @@ namespace Tailport
                 Top = y,
                 Width = 80,
                 Height = 28,
-                FlatStyle = FlatStyle.Flat,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
+                FlatStyle = FlatStyle.Flat
+                // NO Anchor: the form self-sizes its ClientSize after Scale(),
+                // and Top|Right anchors recalculate from the scaled size - the
+                // buttons drift/separate. Absolute positions keep them put.
             };
             save.FlatAppearance.BorderSize = 0;
             save.BackColor = Color.FromArgb(124, 58, 237); // brand violet #7C3AED
@@ -398,12 +400,12 @@ namespace Tailport
             var cancel = new Button
             {
                 Text = "Cancel",
-                Left = pad + fullW - 86,
+                Left = pad + fullW - 86, // right edge aligns with the text boxes' right edge
                 Top = y,
                 Width = 86,
                 Height = 28,
-                FlatStyle = FlatStyle.Flat,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
+                FlatStyle = FlatStyle.Flat
+                // no Anchor - see Save
             };
             cancel.FlatAppearance.BorderColor = _c.Border;
             cancel.BackColor = _c.Bg;
