@@ -27,11 +27,10 @@ wsl_distro=Ubuntu
 socks_host=127.0.0.1
 socks_port=1055
 
-# --- LLM forwarder (the convenience door for local AI) ------
-# Local port on THIS machine -> a tailnet LLM server (llama.cpp, vLLM...).
-# This is also the service the tray icon's health check probes.
-llm_local_port=8080
-llm_target=100.101.102.103:8080
+# --- main forward (the door the tray health-check probes) ----
+# Local port on THIS machine -> any tailnet service (LLM, NAS, Immich...).
+main_local_port=8080
+main_target=100.101.102.103:8080
 
 # --- extra port forwards: ANY tailnet service ---------------
 # format: forward.N = local_port:tailnet_ip:tailnet_port

@@ -1,11 +1,11 @@
 <h1><img src="assets/icon-512.png" width="40" height="40" alt="Tailport" align="absmiddle"> Tailport</h1>
 
-**The Astrill-safe door to your whole Tailscale tailnet — one click from the Windows tray. LLMs, SSH, self-hosted apps: everything on your tailnet becomes reachable from Windows, without Tailscale ever touching the Windows network stack.**
+**The Astrill-safe door to your whole Tailscale tailnet — one click from the Windows tray. Any service on your tailnet (SSH, Immich, an LLM, your NAS...) becomes reachable from Windows, without Tailscale ever touching the Windows network stack.**
 
 If you run Astrill (or any strict VPN) on Windows **and** keep your Tailscale engine in WSL2, Windows itself has no route into the tailnet. Tailport closes that gap: a tiny native tray app that turns a WSL2 tailscaled SOCKS5 proxy into localhost doors for *every* service you list in its config.
 
 ```
-your apps (Hermes, browser, ssh, anything)
+your apps (browser, ssh, anything)
         │  plain TCP/HTTP
         ▼
 localhost:<port>  ◄── Tailport tray toggle (ON/OFF, violet port icon)
@@ -14,7 +14,7 @@ localhost:<port>  ◄── Tailport tray toggle (ON/OFF, violet port icon)
 WSL2 tailscaled (userspace, never touches the Windows stack)
         │  WireGuard
         ▼
-any tailnet service (llama.cpp :8080, Immich :2283, SSH :22, ...)
+any tailnet service (Immich :2283, SSH :22, llama.cpp :8080, ...)
 ```
 
 - **Service ON** — icon turns violet; every configured service answers on `localhost`
@@ -26,13 +26,13 @@ any tailnet service (llama.cpp :8080, Immich :2283, SSH :22, ...)
 
 | Local address | Service |
 |---|---|
-| `http://localhost:8080` | an OpenAI-compatible LLM on the tailnet (llama.cpp / Ollama / vLLM) |
+| `http://localhost:8080` | the **main forward** — any tailnet service you pick (here: an OpenAI-compatible LLM) |
 | `http://localhost:2283` | Immich photos (or anything else you add) |
 | `http://localhost:8001` | Paperless-ngx documents (or anything else you add) |
 
-The LLM door was the original motivation; the tunnel itself is general
-purpose. Add a line to the config, Turn OFF / Turn ON, and any tailnet
-service is yours.
+The main forward is the door the tray icon health-checks (it only needs to
+answer TCP, so SSH and plain services work too). Add a line to the config,
+Turn OFF / Turn ON, and any tailnet service is yours.
 
 ## Why
 
@@ -55,8 +55,8 @@ pythonw=C:\Path\To\pythonw.exe          # the hidden Python that runs the forwar
 wsl_distro=Ubuntu                       # your WSL2 distro running tailscaled
 socks_host=127.0.0.1                    # tailscaled SOCKS5 (WSL2 userspace mode)
 socks_port=1055
-llm_local_port=8080                     # local door for the LLM forward (status anchor)
-llm_target=100.101.102.103:8080         # tailnet LLM server (replace with YOUR tailnet IP)
+main_local_port=8080                     # local door for the main forward (status anchor)
+main_target=100.101.102.103:8080         # any tailnet service (replace with YOUR tailnet IP)
 forward.1=2283:100.101.102.103:2283     # extra forwards: local:tailnet-ip:port
 forward.2=8001:100.101.102.103:8001
 ```
@@ -74,7 +74,7 @@ runtime deps) with a violet 2026 theme, glow hover, pastel state colors:
 - [x] Config-driven: one file describes the whole door (target, ports, forwards)
 - [x] In-app Settings window (edit the config from the tray menu)
 - [x] One-command WSL2 bootstrap for new users (bootstrap.cmd)
-- [ ] Setup wizard installer (asks for WSL2, tailnet IP, ports, model)
+- [ ] Setup wizard installer (asks for WSL2, tailnet IP, ports)
 
 ## Repository layout
 

@@ -21,13 +21,13 @@ echo [!!] Keeper PID %KPID% NOT running
 :KEEPERDONE
 echo.
 
-echo === 1) Local listener (127.0.0.1:%TP_LLM_PORT%) ===
-netstat -ano | findstr "127.0.0.1:%TP_LLM_PORT%" | findstr /I LISTENING
-if errorlevel 1 echo [!!] Nothing listening on 127.0.0.1:%TP_LLM_PORT% - run start.cmd
+echo === 1) Local listener (127.0.0.1:%TP_MAIN_PORT%) ===
+netstat -ano | findstr "127.0.0.1:%TP_MAIN_PORT%" | findstr /I LISTENING
+if errorlevel 1 echo [!!] Nothing listening on 127.0.0.1:%TP_MAIN_PORT% - run start.cmd
 echo.
 
-echo === 2) Chain test: forwarder - WSL SOCKS5 - llm_target /health ===
-curl -s -m 8 http://127.0.0.1:%TP_LLM_PORT%/health
+echo === 2) Chain test: forwarder - WSL SOCKS5 - main target (TCP) ===
+powershell -NoProfile -Command "Test-NetConnection 127.0.0.1 -Port %TP_MAIN_PORT% -InformationLevel Quiet"
 if errorlevel 1 echo [!!] No response - see tailport.log
 echo.
 

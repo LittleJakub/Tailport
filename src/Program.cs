@@ -35,14 +35,13 @@ namespace Tailport
         private static readonly string AppBase = AppDomain.CurrentDomain.BaseDirectory;
         private static readonly string AssetsDir = Path.Combine(AppBase, "assets");
         private static string PythonW = "pythonw";
-        private static int LlmPort = 8080;
+        private static int MainPort = 8080;
         private static string WslDistro = "Ubuntu";
         private static readonly string ForwarderScript = Path.Combine(AppBase, "forwarder.py");
         private static readonly string ForwarderPid = Path.Combine(AppBase, "forwarder.pid");
         private static readonly string KeeperPid = Path.Combine(AppBase, "keeper.pid");
         private static readonly string LogFile = Path.Combine(AppBase, "tailport.log");
         private static readonly string ConfigFile = Path.Combine(AppBase, "tailport.config");
-        private static string HealthUrl { get { return "http://127.0.0.1:" + LlmPort + "/health"; } }
 
         private readonly NotifyIcon _icon = new NotifyIcon();
         private readonly SynchronizationContext _ui;
@@ -274,9 +273,9 @@ namespace Tailport
                         case "pythonw":
                             if (v.Length > 0) PythonW = v;
                             break;
-                        case "llm_local_port":
+                        case "main_local_port":
                             int p;
-                            if (int.TryParse(v, out p) && p > 0) LlmPort = p;
+                            if (int.TryParse(v, out p) && p > 0) MainPort = p;
                             break;
                         case "wsl_distro":
                             if (v.Length > 0) WslDistro = v;
@@ -325,15 +324,18 @@ namespace Tailport
 
         private static bool ProbeHealth()
         {
+            // Universal liveness probe: a plain TCP connect to the main
+            // forward's local door. Any tailnet service answers TCP (SSH,
+            // Immich, an LLM...) - no HTTP /health endpoint required.
             try
             {
-                var req = (HttpWebRequest)WebRequest.Create(HealthUrl);
-                req.Timeout = 3000;
-                using (var resp = (HttpWebResponse)req.GetResponse())
-                using (var sr = new StreamReader(resp.GetResponseStream()))
+                using (var tcp = new System.Net.Sockets.TcpClient())
                 {
-                    return resp.StatusCode == HttpStatusCode.OK
-                        && sr.ReadToEnd().IndexOf("ok", StringComparison.OrdinalIgnoreCase) >= 0;
+                    var ar = tcp.BeginConnect("127.0.0.1", MainPort, null, null);
+                    if (!ar.AsyncWaitHandle.WaitOne(3000))
+                        return false;
+                    tcp.EndConnect(ar);
+                    return tcp.Connected;
                 }
             }
             catch

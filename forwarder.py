@@ -4,13 +4,13 @@ forwarder.py - the Tailport tailnet door for Windows.
 
 Listens on local ports and tunnels every byte through the WSL2
 tailscaled SOCKS5 proxy, so ANY Windows app can reach ANY service
-on the tailnet - LLMs, SSH, self-hosted apps - without Tailscale
+on the tailnet - SSH, self-hosted apps, LLMs - without Tailscale
 ever touching the Windows network stack (so it never fights
 Astrill or any other VPN).
 
 The service list comes from tailport.config (next to this script):
-  llm_local_port / llm_target     the primary forward (status anchor)
-  forward.N = local:host:port     extra forwards, any tailnet service
+  main_local_port / main_target    the primary forward (status anchor)
+  forward.N = local:host:port      extra forwards, any tailnet service
 
 Chain:
   Windows app -> 127.0.0.1:<local> -> this script -> SOCKS5
@@ -80,16 +80,16 @@ def split_host_port(spec):
 
 
 def forward_specs(cfg):
-    """Ordered [(local_port, host, port), ...]: the LLM forward + forward.N list."""
+    """Ordered [(local_port, host, port), ...]: the main forward + forward.N list."""
     specs = []
-    llm_target = cfg.get("llm_target")
-    if llm_target:
+    main_target = cfg.get("main_target")
+    if main_target:
         try:
-            host, port = split_host_port(llm_target)
-            local = int(cfg.get("llm_local_port", "8080"))
+            host, port = split_host_port(main_target)
+            local = int(cfg.get("main_local_port", "8080"))
             specs.append((local, host, port))
         except ValueError as e:
-            log(f"LLM forward skipped: {e}")
+            log(f"main forward skipped: {e}")
     extras = []
     for k, v in cfg.items():
         if not k.startswith("forward."):
@@ -190,7 +190,7 @@ def main():
 
     specs = forward_specs(cfg)
     if not specs:
-        log("no forwards configured - add llm_target and/or forward.N to " + args.config)
+        log("no forwards configured - add main_target and/or forward.N to " + args.config)
         sys.exit(1)
 
     # bind everything FIRST: a busy port aborts startup cleanly instead of
