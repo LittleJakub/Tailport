@@ -22,7 +22,7 @@ echo [!!] Keeper PID %KPID% NOT running
 echo.
 
 echo === 1) Local listener (127.0.0.1:%TP_LLM_PORT%) ===
-netstat -ano | findstr "127.0.0.1:%TP_LLM_PORT%"
+netstat -ano | findstr "127.0.0.1:%TP_LLM_PORT%" | findstr /I LISTENING
 if errorlevel 1 echo [!!] Nothing listening on 127.0.0.1:%TP_LLM_PORT% - run start.cmd
 echo.
 
