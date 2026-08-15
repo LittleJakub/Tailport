@@ -11,7 +11,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <Authors>LittleJakub</Authors>
     <Product>Tailport</Product>
     <Description>Tailport - one-click tailnet access for Windows: LLMs, SSH, self-hosted apps (Astrill-safe)</Description>

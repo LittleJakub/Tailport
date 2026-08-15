@@ -99,6 +99,9 @@ namespace Tailport
                 _icon.ShowBalloonTip(2500, "Tailport", StatusLine(), ToolTipIcon.Info);
             };
 
+            var settings = NewItem("Settings\u2026", true);
+            settings.Click += delegate { ShowSettings(); };
+
             var openLog = NewItem("Open log file", true);
             openLog.Click += delegate { OpenFile(LogFile); };
 
@@ -114,6 +117,7 @@ namespace Tailport
             menu.Items.Add(Sep());
             menu.Items.Add(_toggleItem);
             menu.Items.Add(check);
+            menu.Items.Add(settings);
             menu.Items.Add(Sep());
             menu.Items.Add(openLog);
             menu.Items.Add(Sep());
@@ -431,6 +435,21 @@ namespace Tailport
                     Process.Start("explorer.exe", AppBase);
             }
             catch { }
+        }
+
+        /// <summary>Settings window - edit tailport.config from the tray menu.</summary>
+        private void ShowSettings()
+        {
+            using (var f = new SettingsForm(ConfigFile))
+            {
+                if (f.ShowDialog() == DialogResult.OK)
+                {
+                    LoadConfig();
+                    RefreshStatus();
+                    _icon.ShowBalloonTip(2500, "Tailport",
+                        "Config saved - Turn OFF/ON to apply.", ToolTipIcon.Info);
+                }
+            }
         }
     }
 

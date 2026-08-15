@@ -69,8 +69,9 @@ runtime deps) with a violet 2026 theme, glow hover, pastel state colors:
 - [x] Forwarder + keeper + launchers (proven on the author's machine)
 - [x] 2026-grade icon + theme (violet identity, glow hover, pastel states)
 - [x] Config-driven: one file describes the whole door (target, ports, forwards)
+- [x] In-app Settings window (edit the config from the tray menu)
+- [x] One-command WSL2 bootstrap for new users (bootstrap.cmd)
 - [ ] Setup wizard installer (asks for WSL2, tailnet IP, ports, model)
-- [ ] One-command WSL2 bootstrap for new users
 
 ## Repository layout
 
@@ -83,8 +84,25 @@ config.cmd      loads tailport.config for the .cmd scripts (call config.cmd)
 start.cmd       manual CLI path: boot WSL + start the forwarder
 stop.cmd        manual CLI path: stop the forwarder
 check.cmd       manual CLI path: status + recent log
+bootstrap.cmd   one-command WSL2 setup for a fresh machine
+bootstrap-wsl.sh the WSL-side half of the bootstrap (tailscaled + systemd unit)
 assets/         icons (app tile, tray states)
 ```
+
+## New machine setup
+
+1. **Windows side**: enable WSL2 (`wsl --install` in an admin PowerShell),
+   install Ubuntu from the Store, reboot.
+2. **Bootstrap**: double-click `bootstrap.cmd` — it installs tailscaled inside
+   WSL2 (userspace + SOCKS5, exactly the author's proven rig) and starts the
+   login flow (a browser URL appears — approve it with your Tailscale account).
+3. **Configure**: edit `tailport.config` (or right-click the tray icon →
+   **Settings**) with your server's tailnet IP and the ports you want.
+4. **Go**: double-click `Tailport.exe`, click **Turn ON** — every configured
+   service now answers on `localhost`.
+
+Needs on the Windows side: Python with `pysocks` for the forwarder (the
+upcoming installer wizard will handle this automatically).
 
 ## Requirements
 
