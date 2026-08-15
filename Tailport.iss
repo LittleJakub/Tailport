@@ -277,6 +277,10 @@ begin
     end;
     Parts := TStringList.Create;
     try
+      { the forward format is local:host:port - split on ':' explicitly
+        (DelimitedText defaults to comma-separated!) }
+      Parts.Delimiter := ':';
+      Parts.StrictDelimiter := True;
       for i := 0 to ForwardsMemo.Lines.Count - 1 do
       begin
         Line := Trim(ForwardsMemo.Lines[i]);
