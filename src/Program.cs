@@ -22,11 +22,19 @@ namespace Tailport
             {
                 if (!createdNew)
                     return; // another instance is already running
+                // Give the process an identity: the toast header icon then
+                // resolves to the exe's own icon (the violet logo) instead of
+                // the shell's generic grey placeholder.
+                try { SetCurrentProcessExplicitAppUserModelID("LittleJakub.Tailport"); } catch { }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.Run(new TrayContext());
             }
         }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern int SetCurrentProcessExplicitAppUserModelID(
+            [MarshalAs(UnmanagedType.LPWStr)] string appId);
     }
 
     internal class TrayContext : ApplicationContext
@@ -162,8 +170,11 @@ namespace Tailport
         /// <summary>Toast balloons carry the full violet app icon, not the
         /// small on/off tray glyph. The swap must survive until the balloon
         /// is drawn AND the 10s status tick must not stomp it, so the state
-        /// glyph is only restored when the balloon closes.</summary>
-        private void Balloon(string text, ToolTipIcon tip = ToolTipIcon.Info, int ms = 2500)
+        /// glyph is only restored when the balloon closes. ToolTipIcon.None
+        /// is deliberate: Info/Warning/Error draw a SYSTEM icon (blue "i",
+        /// yellow "!") over the swap - only None lets the balloon show the
+        /// NotifyIcon.Icon we set.</summary>
+        private void Balloon(string text, ToolTipIcon tip = ToolTipIcon.None, int ms = 2500)
         {
             if (_balloonIcon == null)
                 _balloonIcon = LoadIcon(Path.Combine(AssetsDir, "app.ico"));
@@ -217,7 +228,7 @@ namespace Tailport
             }
             catch (Exception ex)
             {
-                Ui(delegate { Balloon("Error: " + ex.Message, ToolTipIcon.Error, 4000); });
+                Ui(delegate { Balloon("Error: " + ex.Message, ToolTipIcon.None, 4000); });
             }
             finally
             {

@@ -372,7 +372,7 @@ namespace Tailport
                 Text = "Saved changes apply on the next Turn ON.",
                 Left = pad,
                 Top = y + 7, // vertically centered against the 28px buttons
-                Width = 400,
+                Width = 300, // keep clear of the button row (buttons start at pad+fullW-170)
                 ForeColor = _c.TextDisabled,
                 Font = Font,
                 BackColor = Color.Transparent
@@ -415,6 +415,12 @@ namespace Tailport
 
             AcceptButton = save;
             CancelButton = cancel;
+
+            // A transparent Label paints its PARENT's background over any
+            // control added before it - the footer would erase the Save
+            // button's fill and text. Buttons must sit on top of the row.
+            save.BringToFront();
+            cancel.BringToFront();
         }
 
         private void SaveClick()
