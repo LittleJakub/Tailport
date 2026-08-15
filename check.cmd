@@ -1,7 +1,9 @@
 @echo off
 REM ============================================================
-REM  check.cmd - status of the forwarder + full chain to parthenon
+REM  check.cmd - status of the tailnet door + full chain test
 REM ============================================================
+
+call "%~dp0config.cmd"
 
 echo === 0) VM keeper (holds the VM open) ===
 set "KPID="
@@ -19,13 +21,13 @@ echo [!!] Keeper PID %KPID% NOT running
 :KEEPERDONE
 echo.
 
-echo === 1) Local listener (127.0.0.1:8080) ===
-netstat -ano | findstr "127.0.0.1:8080" | findstr /I LISTENING
-if errorlevel 1 echo [!!] Nothing listening on 127.0.0.1:8080 - run start.cmd
+echo === 1) Local listener (127.0.0.1:%TP_LLM_PORT%) ===
+netstat -ano | findstr "127.0.0.1:%TP_LLM_PORT%"
+if errorlevel 1 echo [!!] Nothing listening on 127.0.0.1:%TP_LLM_PORT% - run start.cmd
 echo.
 
-echo === 2) Chain test: forwarder - WSL SOCKS5 - parthenon llama /health ===
-curl -s -m 8 http://127.0.0.1:8080/health
+echo === 2) Chain test: forwarder - WSL SOCKS5 - llm_target /health ===
+curl -s -m 8 http://127.0.0.1:%TP_LLM_PORT%/health
 if errorlevel 1 echo [!!] No response - see tailport.log
 echo.
 

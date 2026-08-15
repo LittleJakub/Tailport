@@ -34,13 +34,15 @@ namespace Tailport
         // ---- everything is relative to the exe folder: the app is portable ----
         private static readonly string AppBase = AppDomain.CurrentDomain.BaseDirectory;
         private static readonly string AssetsDir = Path.Combine(AppBase, "assets");
-        private static readonly string PythonW =
-            @"C:\Users\user\AppData\Local\Programs\Python\Python311\pythonw.exe";
+        private static string PythonW = "pythonw";
+        private static int LlmPort = 8080;
+        private static string WslDistro = "Ubuntu";
         private static readonly string ForwarderScript = Path.Combine(AppBase, "forwarder.py");
         private static readonly string ForwarderPid = Path.Combine(AppBase, "forwarder.pid");
         private static readonly string KeeperPid = Path.Combine(AppBase, "keeper.pid");
         private static readonly string LogFile = Path.Combine(AppBase, "tailport.log");
-        private const string HealthUrl = "http://127.0.0.1:8080/health";
+        private static readonly string ConfigFile = Path.Combine(AppBase, "tailport.config");
+        private static string HealthUrl { get { return "http://127.0.0.1:" + LlmPort + "/health"; } }
 
         private readonly NotifyIcon _icon = new NotifyIcon();
         private readonly SynchronizationContext _ui;
@@ -54,6 +56,7 @@ namespace Tailport
 
         public TrayContext()
         {
+            LoadConfig();
             _ui = SynchronizationContext.Current ?? new SynchronizationContext();
             _palette = new ModernColors(WinTheme.IsDark());
             BuildMenu();
@@ -197,18 +200,18 @@ namespace Tailport
             // 0) sweep any stray keepers from previous runs
             KillStrayKeepers();
             // 1) boot WSL + start tailscaled (same as start.cmd)
-            RunHidden("wsl", "-d Ubuntu -u root -- systemctl start tailscaled");
+            RunHidden("wsl", "-d " + WslDistro + " -u root -- systemctl start tailscaled");
             // 2) kick the tailnet session into sync (no-op if already connected)
-            RunHidden("wsl", "-d Ubuntu -u root -- timeout 20 tailscale up --accept-dns=true");
+            RunHidden("wsl", "-d " + WslDistro + " -u root -- timeout 20 tailscale up --accept-dns=true");
             // 3) launch the forwarder (hidden)
             Process.Start(new ProcessStartInfo(PythonW,
-                "\"" + ForwarderScript + "\" --local 8080 --host 100.101.102.103 --port 8080")
+                "\"" + ForwarderScript + "\" --config \"" + ConfigFile + "\"")
             {
                 CreateNoWindow = true,
                 UseShellExecute = false
             });
             // 4) keeper: hold the WSL VM open (it dies ~60 s after the last wsl client)
-            Process.Start(new ProcessStartInfo("wsl", "-d Ubuntu -u root -- sleep infinity")
+            Process.Start(new ProcessStartInfo("wsl", "-d " + WslDistro + " -u root -- sleep infinity")
             {
                 CreateNoWindow = true,
                 UseShellExecute = false
@@ -244,6 +247,44 @@ namespace Tailport
         }
 
         // ================= status =================
+
+        /// <summary>Read tailport.config (key=value) next to the exe; defaults survive anything.</summary>
+        private static void LoadConfig()
+        {
+            try
+            {
+                if (!File.Exists(ConfigFile))
+                    return;
+                foreach (var raw in File.ReadAllLines(ConfigFile))
+                {
+                    var line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#"))
+                        continue;
+                    int eq = line.IndexOf('=');
+                    if (eq <= 0)
+                        continue;
+                    string k = line.Substring(0, eq).Trim().ToLowerInvariant();
+                    string v = line.Substring(eq + 1).Trim();
+                    switch (k)
+                    {
+                        case "pythonw":
+                            if (v.Length > 0) PythonW = v;
+                            break;
+                        case "llm_local_port":
+                            int p;
+                            if (int.TryParse(v, out p) && p > 0) LlmPort = p;
+                            break;
+                        case "wsl_distro":
+                            if (v.Length > 0) WslDistro = v;
+                            break;
+                    }
+                }
+            }
+            catch
+            {
+                // defaults survive any config problem
+            }
+        }
 
         private void RefreshStatus()
         {

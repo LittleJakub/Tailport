@@ -1,8 +1,10 @@
 @echo off
 REM ============================================================
-REM  stop.cmd - stop the tailnet forwarder
+REM  stop.cmd - stop the Tailport tailnet door
 REM  Reversible: run start.cmd to bring it back.
 REM ============================================================
+
+call "%~dp0config.cmd"
 
 set "PID="
 if exist "%~dp0forwarder.pid" set /p PID=<"%~dp0forwarder.pid"
@@ -18,9 +20,9 @@ if defined KPID taskkill /PID %KPID% /F >nul 2>&1
 if defined KPID del "%~dp0keeper.pid" >nul 2>&1
 if defined KPID echo [OK] Keeper stopped - VM will shut down within ~1 min
 
-netstat -ano | findstr "127.0.0.1:8080" | findstr /I LISTENING >nul 2>&1
-if errorlevel 1 echo [OK] Port 8080 is free again.
-if not errorlevel 1 echo [!!] Port 8080 still occupied by something.
+netstat -ano | findstr "127.0.0.1:%TP_LLM_PORT%" | findstr /I LISTENING >nul 2>&1
+if errorlevel 1 echo [OK] Port %TP_LLM_PORT% is free again.
+if not errorlevel 1 echo [!!] Port %TP_LLM_PORT% still occupied by something.
 
 echo.
 pause
