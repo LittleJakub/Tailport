@@ -190,7 +190,7 @@ namespace Tailport
                 {
                     cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA)),
                     hWnd = hwnd,
-                    uID = 0,
+                    uID = NotifyIconId(),  // WinForms registers id=1, not 0
                     uFlags = NIF_INFO,       // NOT NIF_ICON: tray icon must not change
                     szInfo = text,
                     szInfoTitle = "",        // no repeated "Tailport" line in the body
@@ -208,8 +208,10 @@ namespace Tailport
         }
 
         /// <summary>The WinForms NotifyIcon owns a hidden native window; the
-        /// shell matches tray entries by (hWnd, uID). Pull the handle via
-        /// reflection - it is internal to NotifyIcon.</summary>
+        /// shell matches tray entries by (hWnd, uID). Both are internal to
+        /// NotifyIcon - pull them via reflection. The uID is NOT 0: WinForms
+        /// registers with id=1, and NIM_MODIFY fails to match (returns false,
+        /// balloon silently degrades) if the id is wrong.</summary>
         private IntPtr NotifyWindowHandle()
         {
             try
@@ -222,6 +224,20 @@ namespace Tailport
             catch
             {
                 return IntPtr.Zero;
+            }
+        }
+
+        private int NotifyIconId()
+        {
+            try
+            {
+                var f = typeof(NotifyIcon).GetField("id",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                return f != null ? (int)f.GetValue(_icon) : 1;
+            }
+            catch
+            {
+                return 1;
             }
         }
 
