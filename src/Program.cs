@@ -169,11 +169,13 @@ namespace Tailport
         /// <summary>Balloon toast: header = "Tailport" (the app identity, set via
         /// AppUserModelID), body = the full violet app icon + the message text.
         /// Fired with a raw Shell_NotifyIcon NIM_MODIFY carrying NIIF_USER and
-        /// hBalloonIcon - on Vista+ the shell renders THAT icon in the balloon
-        /// body (hIcon alone is ignored: the shell falls back to the app
-        /// identity icon, monochrome grey). Crucially NIF_ICON is NOT set, so
-        /// the persisted tray icon is untouched: the tray glyph is driven ONLY
-        /// by service status (RefreshStatus), never by notifications.</summary>
+        /// hIcon. (hBalloonIcon was tried first: on this Win11 build the shell
+        /// REJECTS any call that sets it - returns false and the balloon
+        /// silently degrades to a plain toast. hIcon is the only accepted
+        /// carrier. Whether the shell renders it in color is system behavior.)
+        /// Crucially NIF_ICON is NOT set, so the persisted tray icon is
+        /// untouched: the tray glyph is driven ONLY by service status
+        /// (RefreshStatus), never by notifications.</summary>
         private void Balloon(string text, int ms = 2500)
         {
             try
@@ -195,10 +197,9 @@ namespace Tailport
                     uFlags = NIF_INFO,       // NOT NIF_ICON: tray icon must not change
                     szInfo = text,
                     szInfoTitle = "",        // no repeated "Tailport" line in the body
-                    dwInfoFlags = NIIF_USER, // balloon shows hBalloonIcon (the violet logo)
+                    dwInfoFlags = NIIF_USER, // balloon shows hIcon (the violet logo)
                     uVersion = ms,
-                    hIcon = _balloonIcon.Handle,          // XP path (harmless: no NIF_ICON)
-                    hBalloonIcon = _balloonIcon.Handle    // Vista+ path (the one that matters)
+                    hIcon = _balloonIcon.Handle
                 };
                 if (!Shell_NotifyIcon(NIM_MODIFY, ref d))
                     _icon.ShowBalloonTip(ms, "", text, ToolTipIcon.None);
