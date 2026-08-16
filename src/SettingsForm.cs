@@ -83,7 +83,7 @@ namespace Tailport
             }
             const int pad = 9; // small content pad, mirrored on the right
             int wantW = Math.Max(maxRight + (int)(pad * s), 300);
-            int wantH = Math.Max(maxBottom + (int)(18 * s), 200);
+            int wantH = Math.Max(maxBottom + (int)(pad * s), 200); // bottom pad == side pad (user: match all four)
             if (wantW != ClientSize.Width || wantH != ClientSize.Height)
                 ClientSize = new Size(wantW, wantH);
 
@@ -284,7 +284,7 @@ namespace Tailport
             const int cell = 160;            // 3-column grid cell (door section)
             const int cgap = 12;             // gap between grid cells
             const int fullW = cell * 3 + cgap * 2; // 504 = full content width
-            int y = 12;
+            int y = 9;                       // top pad == side pad (user: match all four)
 
             // ---- tailnet door ----
             // One 3-column row for the short values; the long python path gets a

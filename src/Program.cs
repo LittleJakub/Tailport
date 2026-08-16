@@ -25,7 +25,7 @@ namespace Tailport
                 // Give the process an identity: the toast header icon then
                 // resolves to the exe's own icon (the violet logo) instead of
                 // the shell's generic grey placeholder.
-                try { SetCurrentProcessExplicitAppUserModelID("LittleJakub.Tailport"); } catch { }
+                try { SetCurrentProcessExplicitAppUserModelID("Tailport"); } catch { }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.Run(new TrayContext());
@@ -57,8 +57,7 @@ namespace Tailport
         private ToolStripMenuItem _statusItem;
         private ToolStripMenuItem _toggleItem;
         private Icon _currentIcon;
-        private static Icon _balloonIcon; // full app icon for toast balloons
-        private volatile bool _balloonShowing; // RefreshStatus must not stomp the balloon icon
+        private static Icon _balloonIcon; // full app icon for the balloon body (never assigned to the tray)
         private DateTime _lastLeftClick;
         private volatile bool _running;
         private volatile bool _reachable;
@@ -167,36 +166,92 @@ namespace Tailport
             return new ToolStripSeparator();
         }
 
-        /// <summary>Toast balloons carry the full violet app icon, not the
-        /// small on/off tray glyph. The swap must survive until the balloon
-        /// is drawn AND the 10s status tick must not stomp it, so the state
-        /// glyph is only restored when the balloon closes. ToolTipIcon.None
-        /// is deliberate: Info/Warning/Error draw a SYSTEM icon (blue "i",
-        /// yellow "!") over the swap - only None lets the balloon show the
-        /// NotifyIcon.Icon we set.</summary>
-        private void Balloon(string text, ToolTipIcon tip = ToolTipIcon.None, int ms = 2500)
+        /// <summary>Balloon toast: header = "Tailport" (the app identity, set via
+        /// AppUserModelID), body = the full violet app icon + the message text.
+        /// Fired with a raw Shell_NotifyIcon NIM_MODIFY carrying NIIF_USER and
+        /// hIcon - the shell renders THAT icon in the balloon body. Crucially
+        /// NIF_ICON is NOT set, so the persisted tray icon is untouched: the
+        /// tray glyph is driven ONLY by service status (RefreshStatus), never
+        /// by notifications.</summary>
+        private void Balloon(string text, int ms = 2500)
         {
-            if (_balloonIcon == null)
-                _balloonIcon = LoadIcon(Path.Combine(AssetsDir, "app.ico"));
-            if (_balloonIcon != null)
+            try
             {
-                EventHandler onClose = null;
-                onClose = delegate
+                if (_balloonIcon == null)
+                    _balloonIcon = LoadIcon(Path.Combine(AssetsDir, "app.ico"));
+                IntPtr hwnd = NotifyWindowHandle();
+                if (_balloonIcon == null || hwnd == IntPtr.Zero)
                 {
-                    _balloonShowing = false;
-                    _icon.BalloonTipClosed -= onClose;
-                    RefreshStatus(); // restore the correct state glyph now
+                    // fallback: plain toast, no title (status text only)
+                    _icon.ShowBalloonTip(ms, "", text, ToolTipIcon.None);
+                    return;
+                }
+                var d = new NOTIFYICONDATA
+                {
+                    cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA)),
+                    hWnd = hwnd,
+                    uID = 0,
+                    uFlags = NIF_INFO,       // NOT NIF_ICON: tray icon must not change
+                    szInfo = text,
+                    szInfoTitle = "",        // no repeated "Tailport" line in the body
+                    dwInfoFlags = NIIF_USER, // balloon shows hIcon (the violet logo)
+                    uVersion = ms,
+                    hIcon = _balloonIcon.Handle
                 };
-                _icon.BalloonTipClosed += onClose;
-                _balloonShowing = true;
-                _icon.Icon = _balloonIcon;
-                _icon.ShowBalloonTip(ms, "Tailport", text, tip);
+                if (!Shell_NotifyIcon(NIM_MODIFY, ref d))
+                    _icon.ShowBalloonTip(ms, "", text, ToolTipIcon.None);
             }
-            else
+            catch
             {
-                _icon.ShowBalloonTip(ms, "Tailport", text, tip);
+                try { _icon.ShowBalloonTip(ms, "", text, ToolTipIcon.None); } catch { }
             }
         }
+
+        /// <summary>The WinForms NotifyIcon owns a hidden native window; the
+        /// shell matches tray entries by (hWnd, uID). Pull the handle via
+        /// reflection - it is internal to NotifyIcon.</summary>
+        private IntPtr NotifyWindowHandle()
+        {
+            try
+            {
+                var f = typeof(NotifyIcon).GetField("window",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var w = f != null ? f.GetValue(_icon) as NativeWindow : null;
+                return w == null ? IntPtr.Zero : w.Handle;
+            }
+            catch
+            {
+                return IntPtr.Zero;
+            }
+        }
+
+        // ---- NOTIFYICONDATAW (Vista layout) for custom-balloon balloons ----
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct NOTIFYICONDATA
+        {
+            public int cbSize;
+            public IntPtr hWnd;
+            public int uID;
+            public int uFlags;
+            public IntPtr uCallbackMessage;
+            public IntPtr hIcon;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string szTip;
+            public int dwState;
+            public int dwStateMask;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string szInfo;
+            public int uVersion;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string szInfoTitle;
+            public int dwInfoFlags;
+            public Guid guidItem;
+            public IntPtr hBalloonIcon;
+        }
+
+        private const int NIM_MODIFY = 0x1;
+        private const int NIF_INFO = 0x10;
+        private const int NIIF_USER = 0x4;
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool Shell_NotifyIcon(int dwMessage, ref NOTIFYICONDATA lpdata);
 
         // ================= toggle =================
 
@@ -228,7 +283,7 @@ namespace Tailport
             }
             catch (Exception ex)
             {
-                Ui(delegate { Balloon("Error: " + ex.Message, ToolTipIcon.None, 4000); });
+                Ui(delegate { Balloon("Error: " + ex.Message, 4000); });
             }
             finally
             {
@@ -347,7 +402,7 @@ namespace Tailport
             string glyph = running ? "on.ico" : "off.ico";
 
             var newIcon = LoadIcon(Path.Combine(AssetsDir, glyph));
-            if (!_balloonShowing && newIcon != null)
+            if (newIcon != null)
             {
                 var old = _currentIcon;
                 _currentIcon = newIcon;
