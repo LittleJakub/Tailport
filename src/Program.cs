@@ -169,10 +169,11 @@ namespace Tailport
         /// <summary>Balloon toast: header = "Tailport" (the app identity, set via
         /// AppUserModelID), body = the full violet app icon + the message text.
         /// Fired with a raw Shell_NotifyIcon NIM_MODIFY carrying NIIF_USER and
-        /// hIcon - the shell renders THAT icon in the balloon body. Crucially
-        /// NIF_ICON is NOT set, so the persisted tray icon is untouched: the
-        /// tray glyph is driven ONLY by service status (RefreshStatus), never
-        /// by notifications.</summary>
+        /// hBalloonIcon - on Vista+ the shell renders THAT icon in the balloon
+        /// body (hIcon alone is ignored: the shell falls back to the app
+        /// identity icon, monochrome grey). Crucially NIF_ICON is NOT set, so
+        /// the persisted tray icon is untouched: the tray glyph is driven ONLY
+        /// by service status (RefreshStatus), never by notifications.</summary>
         private void Balloon(string text, int ms = 2500)
         {
             try
@@ -194,9 +195,10 @@ namespace Tailport
                     uFlags = NIF_INFO,       // NOT NIF_ICON: tray icon must not change
                     szInfo = text,
                     szInfoTitle = "",        // no repeated "Tailport" line in the body
-                    dwInfoFlags = NIIF_USER, // balloon shows hIcon (the violet logo)
+                    dwInfoFlags = NIIF_USER, // balloon shows hBalloonIcon (the violet logo)
                     uVersion = ms,
-                    hIcon = _balloonIcon.Handle
+                    hIcon = _balloonIcon.Handle,          // XP path (harmless: no NIF_ICON)
+                    hBalloonIcon = _balloonIcon.Handle    // Vista+ path (the one that matters)
                 };
                 if (!Shell_NotifyIcon(NIM_MODIFY, ref d))
                     _icon.ShowBalloonTip(ms, "", text, ToolTipIcon.None);

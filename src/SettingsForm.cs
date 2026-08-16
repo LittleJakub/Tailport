@@ -375,14 +375,14 @@ namespace Tailport
             _tip.SetToolTip(_forwards,
                 "One per line: local:tailnet-ip:port (e.g. 2283:100.101.102.103:2283). The smallest local port is the status anchor.");
             // footer row anchors to the hint's REAL bottom (box height varies)
-            y = fhint.Bottom + 8;
+            y = fhint.Bottom + 12; // breathy gap hint -> buttons (user: "a little more breathy")
 
             // ---- actions: footer left, buttons right ----
             var footer = new Label
             {
                 Text = "Saved changes apply on the next Turn ON.",
                 Left = pad,
-                Top = y + 7, // vertically centered against the 28px buttons
+                Top = y + 4, // up a tad (user): centers the text on the 28px buttons
                 Width = 300, // keep clear of the button row (buttons start at pad+fullW-170)
                 ForeColor = _c.TextDisabled,
                 Font = Font,
